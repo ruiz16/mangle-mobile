@@ -1,0 +1,80 @@
+import { useState } from 'react';
+import { useLocation } from 'wouter';
+import { useAppState } from '../context/AppState';
+import { showToast } from '../components/Toast';
+
+export default function Connect() {
+  const { connectWallet } = useAppState();
+  const [, navigate] = useLocation();
+  const [connecting, setConnecting] = useState(false);
+
+  const handleConnect = async () => {
+    setConnecting(true);
+
+    // Simulate wallet connection
+    await new Promise((r) => setTimeout(r, 800));
+
+    connectWallet('0x3F2A...8B91');
+    showToast('Billetera Conectada', 'Se ha establecido conexión segura con MiniPay (0x3F2A...8B91).', 'success');
+
+    setTimeout(() => navigate('/register'), 1000);
+  };
+
+  return (
+    <div className="flex-1 flex flex-col justify-between p-6">
+      <div className="space-y-4 text-center">
+        <div className="w-16 h-16 bg-[#EBF4EE] text-[#2A5C3C] rounded-full flex items-center justify-center mx-auto text-2xl shadow-sm">
+          <i className="fa-solid fa-wallet" />
+        </div>
+        <h3 className="text-lg font-bold text-[#1E3E28]">Solicitud de Conexión</h3>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          MANGLE solicita permiso para conectarse a tu cuenta de <strong>MiniPay (Celo)</strong> para gestionar tus microcréditos sin cargos de gas.
+        </p>
+
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-100 text-left space-y-2.5">
+          <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">
+            Información Compartida
+          </span>
+          <div className="flex items-center gap-2 text-xs">
+            <i className="fa-solid fa-check text-emerald-600" />
+            <span>Dirección pública (Wallet Address)</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <i className="fa-solid fa-check text-emerald-600" />
+            <span>Consultas de balances de COPm</span>
+          </div>
+          <div className="h-px bg-slate-100" />
+          <div className="flex justify-between items-center text-[10px] font-mono text-slate-400">
+            <span>Tu Wallet sugerida:</span>
+            <span className="bg-slate-50 px-2 py-0.5 rounded text-slate-600">0x3F2A...8B91</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <button
+          onClick={handleConnect}
+          disabled={connecting}
+          className="w-full py-3 bg-[#2A5C3C] hover:bg-[#1E3E28] disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2"
+        >
+          {connecting ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Conectando...
+            </>
+          ) : (
+            <>
+              <i className="fa-solid fa-link" /> Autorizar y Conectar Wallet
+            </>
+          )}
+        </button>
+        <button
+          onClick={() => navigate('/')}
+          className="w-full py-2.5 text-slate-400 hover:text-slate-600 text-xs font-semibold"
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
+}
