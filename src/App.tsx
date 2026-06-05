@@ -44,9 +44,9 @@ function MobileShell({ children, showNav }: { children: React.ReactNode; showNav
   const currentTab = tabMap[location] ?? 'education';
 
   return (
-    <div className="flex-1 bg-[#FBF9F4] rounded-[36px] overflow-hidden flex flex-col relative">
+    <div className="flex-1 bg-[#FBF9F4] overflow-hidden flex flex-col relative">
       {/* Status bar */}
-      <div className="flex justify-between items-center px-6 pt-3 pb-1 text-slate-800 text-[11px] font-bold z-40">
+      {/* <div className="flex justify-between items-center px-6 pt-3 pb-1 text-slate-800 text-[11px] font-bold z-40">
         <span>{new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
         <div className="flex items-center gap-2">
           <span className="text-[9px] bg-[#2A5C3C] text-white font-extrabold px-1.5 py-0.5 rounded leading-none">MiniPay</span>
@@ -54,7 +54,7 @@ function MobileShell({ children, showNav }: { children: React.ReactNode; showNav
           <i className="fa-solid fa-wifi" />
           <i className="fa-solid fa-battery-full text-xs" />
         </div>
-      </div>
+      </div> */}
 
       {/* Page content */}
       <div className="flex-1 overflow-y-auto flex flex-col no-scrollbar">

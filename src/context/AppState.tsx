@@ -9,6 +9,7 @@ import {
   useContext,
   useState,
   useCallback,
+  useEffect,
   type ReactNode,
 } from 'react';
 import type {
@@ -20,6 +21,31 @@ import type {
 } from '../types';
 import { createDefaultState } from '../types';
 import { getDefaultGaccMembers } from '../lib/data';
+
+const STORAGE_KEY = 'mangle:state';
+
+function loadSavedState(): AppState {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && 'walletConnected' in parsed) {
+        return parsed as AppState;
+      }
+    }
+  } catch {
+    // localStorage corrupto, lleno o inexistente — usar default
+  }
+  return createDefaultState();
+}
+
+function saveState(state: AppState): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // storage lleno o no disponible — silencio
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Context value
@@ -59,7 +85,12 @@ const AppStateContext = createContext<AppStateContextValue | null>(null);
 // ---------------------------------------------------------------------------
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AppState>(createDefaultState);
+  const [state, setState] = useState<AppState>(loadSavedState);
+
+  // Persist on every state change
+  useEffect(() => {
+    saveState(state);
+  }, [state]);
 
   // ---------- Wallet ----------
 
@@ -177,6 +208,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   // ---------- Reset ----------
 
   const resetState = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
     setState(createDefaultState());
   }, []);
 
