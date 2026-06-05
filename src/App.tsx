@@ -65,9 +65,6 @@ function MobileShell({ children, showNav }: { children: React.ReactNode; showNav
       {showNav && (
         <BottomNav activeTab={currentTab} onNavigate={handleNav} alertDot={state.nodeAlert} />
       )}
-
-      {/* Toast */}
-      <Toast />
     </div>
   );
 }
@@ -80,6 +77,7 @@ export default function App() {
   return (
     <AppStateProvider>
       <div className="h-full flex flex-col bg-slate-950">
+        <Toast />
         <Switch>
           <Route path="/dev">
             <MobileShell showNav={false}>
