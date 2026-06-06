@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useAppState } from '../context/AppState';
 import MemberCard from '../components/MemberCard';
+import PageHeader from '../components/PageHeader';
 import { showToast } from '../components/Toast';
 import { apiGet } from '../lib/api';
 import type { Member } from '../types';
@@ -60,15 +61,30 @@ export default function Gacc() {
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-between p-4">
+    <div className="flex-1 flex flex-col justify-between p-5">
       <div className="space-y-4">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Mi Grupo GACC</h3>
-          <span className="text-[9px] font-bold bg-[#2A5C3C] text-white px-2 py-0.5 rounded-full">
-            {gaccKey.charAt(0).toUpperCase() + gaccKey.slice(1)}
-          </span>
-        </div>
+        <PageHeader
+          title="Mi Grupo GACC"
+          subtitle="Ver y administrar tu grupo GACC."
+          right={
+            <span className="text-[9px] font-bold bg-[#2A5C3C] text-white px-2 py-0.5 rounded-full">
+              {gaccKey.charAt(0).toUpperCase() + gaccKey.slice(1)}
+            </span>
+          }
+        />
+
+        {/* Community Alert */}
+        {state.nodeAlert && (
+          <div className="bg-rose-50 border border-rose-200 p-2.5 rounded-xl text-[10px] text-rose-800 animate-pulse">
+            <div className="flex gap-1.5 items-start">
+              <i className="fa-solid fa-circle-exclamation text-xs mt-0.5" />
+              <div>
+                <strong className="font-bold block">Garantía Social Comprometida</strong>
+                Tu compañera <span className="font-bold">{state.alertPartnerName}</span> presenta retraso. Tu red tiene 48h para apoyarla antes de suspender el nodo.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Invitation Code */}
         <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm space-y-2">
@@ -116,18 +132,6 @@ export default function Gacc() {
           ))}
         </div>
 
-        {/* Community Alert */}
-        {state.nodeAlert && (
-          <div className="bg-rose-50 border border-rose-200 p-2.5 rounded-xl text-[10px] text-rose-800 animate-pulse">
-            <div className="flex gap-1.5 items-start">
-              <i className="fa-solid fa-circle-exclamation text-xs mt-0.5" />
-              <div>
-                <strong className="font-bold block">Garantía Social Comprometida</strong>
-                Tu compañera <span className="font-bold">{state.alertPartnerName}</span> presenta retraso. Tu red tiene 48h para apoyarla antes de suspender el nodo.
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Footer */}

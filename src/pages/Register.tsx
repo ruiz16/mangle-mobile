@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { useAppState } from '../context/AppState';
 import { REFERIDORAS_BY_GACC } from '../lib/data';
 import { showToast } from '../components/Toast';
+import PageHeader from '../components/PageHeader';
 import type { Municipio } from '../types';
 import { apiPost } from '../lib/api';
 
@@ -108,13 +109,13 @@ export default function Register() {
   return (
     <div className="flex-1 flex flex-col justify-between p-5">
       <div className="space-y-4">
-        <div className="space-y-1">
-          <span className="text-[10px] font-bold text-[#D99B26] uppercase tracking-wider">Paso Obligatorio</span>
-          <h3 className="text-base font-extrabold text-[#1E3E28]">Registro del Perfil Emprendedor</h3>
-          <p className="text-[11px] text-slate-500">
-            Tus datos de confianza se asocian de manera privada off-chain por la Fundación Libélulas Doradas.
-          </p>
-        </div>
+        <PageHeader
+          title="Registro del Perfil Emprendedor"
+          subtitle="Tus datos de confianza se asocian de manera privada off-chain por la Fundación Libélulas Doradas."
+          right={
+            <span className="text-[10px] font-bold text-[#D99B26] uppercase tracking-wider">Paso Obligatorio</span>
+          }
+        />
 
         <div className="space-y-3">
           {/* Name */}

@@ -1,5 +1,6 @@
 import { useLocation } from 'wouter';
 import { useAppState } from '../context/AppState';
+import PageHeader from '../components/PageHeader';
 import ScoreRing from '../components/ScoreRing';
 
 export default function Credential() {
@@ -7,15 +8,15 @@ export default function Credential() {
   const [, navigate] = useLocation();
 
   return (
-    <div className="flex-1 flex flex-col justify-between p-4">
-      <div className="space-y-4 text-center">
-        <div className="space-y-1">
-          <h4 className="text-sm font-bold text-slate-500 uppercase tracking-widest">Credencial Digital</h4>
-          <h3 className="text-base font-black text-[#1E3E28]">Tu Reputación On-Chain</h3>
-        </div>
+    <div className="flex-1 flex flex-col justify-between p-5">
+      <div className="space-y-12">
+        <PageHeader
+          title="Tu Reputación On-Chain"
+          subtitle="Credencial Digital"
+        />
 
         {/* NFT Card */}
-        <div className="w-full max-w-[240px] mx-auto bg-gradient-to-br from-amber-500 via-yellow-400 to-amber-600 rounded-2xl shadow-lg p-4 text-white flex flex-col justify-between h-[280px] relative overflow-hidden text-left">
+        <div className="w-full max-w-[240px] mx-auto bg-gradient-to-br from-amber-800 via-yellow-400 to-amber-600 rounded-2xl shadow-lg p-4 text-white flex flex-col justify-between h-[280px] relative overflow-hidden text-left">
           <div className="absolute -right-8 -bottom-8 w-24 h-24 rounded-full bg-white/10 blur-xl" />
 
           <div className="flex justify-between items-start">
@@ -46,15 +47,6 @@ export default function Credential() {
         <p className="text-[11px] text-slate-500 px-4 leading-relaxed">
           Esta credencial vive de manera auditable y segura como un NFT dinámico en tu wallet MiniPay. Sirve como tu pasaporte de confianza para la Fase 2.
         </p>
-      </div>
-
-      <div className="pt-2">
-        <button
-          onClick={() => navigate('/repayment')}
-          className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition"
-        >
-          Regresar a mi Crédito
-        </button>
       </div>
     </div>
   );

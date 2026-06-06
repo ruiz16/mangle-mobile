@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { useAppState } from '../context/AppState';
 import AmountSlider from '../components/AmountSlider';
+import PageHeader from '../components/PageHeader';
 import { LOAN_CATEGORIES } from '../types';
 import type { LoanCategory } from '../types';
 import { showToast } from '../components/Toast';
@@ -53,16 +54,10 @@ export default function Request() {
 
   return (
     <div className="flex-1 flex flex-col justify-between p-5">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate('/education')}
-          className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-slate-700 hover:bg-slate-100 border border-slate-100"
-        >
-          <i className="fa-solid fa-chevron-left text-xs" />
-        </button>
-        <h3 className="text-sm font-extrabold text-slate-800">Solicitar tu Crédito</h3>
-      </div>
+      <PageHeader
+        title="Solicitar tu Crédito"
+        subtitle="Solicita tu crédito y recibe tu COPm en tu wallet."
+      />
 
       <div className="space-y-4 mt-3">
         {/* Slider */}

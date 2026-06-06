@@ -1,5 +1,6 @@
 import { useLocation } from 'wouter';
 import { useAppState } from '../context/AppState';
+import PageHeader from '../components/PageHeader';
 import { showToast } from '../components/Toast';
 
 export default function Dev() {
@@ -23,19 +24,10 @@ export default function Dev() {
 
   return (
     <div className="flex-1 p-5 space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">🛠 Panel de Desarrollo</span>
-          <h3 className="text-lg font-black text-slate-800">Debug / Simulación</h3>
-        </div>
-        <button
-          onClick={() => navigate('/repayment')}
-          className="px-3 py-1.5 bg-slate-100 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-200 transition"
-        >
-          <i className="fa-solid fa-arrow-left mr-1" /> Volver
-        </button>
-      </div>
+      <PageHeader
+        title="Debug / Simulación"
+        subtitle="Panel de Desarrollo"
+      />
 
       {/* State indicators */}
       <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">

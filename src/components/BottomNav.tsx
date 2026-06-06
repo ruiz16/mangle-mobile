@@ -31,9 +31,6 @@ export default function BottomNav({ activeTab, onNavigate, alertDot }: BottomNav
           >
             <i className={`fa-solid fa-${tab.icon} text-xs`} />
             <span className="text-[8px]">{tab.label}</span>
-            {tab.key === 'gacc' && alertDot && (
-              <span className="absolute -top-0.5 right-1 w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-            )}
           </button>
         );
       })}

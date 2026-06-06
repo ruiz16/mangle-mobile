@@ -1,4 +1,5 @@
 import { useAppState } from '../context/AppState';
+import PageHeader from '../components/PageHeader';
 import { formatCOP } from '../lib/currency';
 import { showToast } from '../components/Toast';
 
@@ -27,38 +28,28 @@ export default function Repayment() {
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-between p-4">
-      <div className="space-y-3.5">
-        {/* Mini header */}
-        <div className="flex justify-between items-center bg-white p-2.5 rounded-xl border border-slate-100 shadow-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-[#EBF4EE] text-[#2A5C3C] flex items-center justify-center text-xs">
-              <i className="fa-solid fa-water" />
-            </div>
-            <div>
-              <span className="text-[9px] text-slate-400 block font-medium">
-                GACC: {state.gaccName || '—'}
+    <div className="flex-1 flex flex-col justify-between p-5">
+      <div className="space-y-4">
+        <PageHeader
+          title="Repago de Crédito"
+          subtitle="Ver y administrar tu grupo GACC."
+          right={
+            <div className="flex items-center gap-1">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  state.nodeAlert ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'
+                }`}
+              />
+              <span
+                className={`text-[9px] font-bold ${
+                  state.nodeAlert ? 'text-rose-700 animate-pulse' : 'text-emerald-700'
+                }`}
+              >
+                {state.nodeAlert ? 'Alerta Activa (48h)' : 'Nodo Al Día'}
               </span>
-              <span className="text-[10px] font-bold text-slate-800 leading-none">
-                {state.gaccName || 'Sin GACC'}
-              </span>
             </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                state.nodeAlert ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'
-              }`}
-            />
-            <span
-              className={`text-[9px] font-bold ${
-                state.nodeAlert ? 'text-rose-700 animate-pulse' : 'text-emerald-700'
-              }`}
-            >
-              {state.nodeAlert ? 'Alerta Activa (48h)' : 'Nodo Al Día'}
-            </span>
-          </div>
-        </div>
+          }
+        />
 
         {/* Alert warning */}
         {state.nodeAlert && (
@@ -142,7 +133,7 @@ export default function Repayment() {
       </div>
 
       {/* Payment trigger */}
-      <div className="pt-3">
+      <div className="pt-4">
         {state.creditEstado === 'pendiente' ? (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
             <i className="fa-solid fa-hourglass-half text-amber-600 text-base block mb-1" />

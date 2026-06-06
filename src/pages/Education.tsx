@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { useAppState } from '../context/AppState';
 import { EDU_CONVERSATION } from '../lib/data';
 import ChatBubble from '../components/ChatBubble';
+import PageHeader from '../components/PageHeader';
 import { showToast } from '../components/Toast';
 
 export default function Education() {
@@ -37,20 +38,17 @@ export default function Education() {
   return (
     <div className="flex-1 flex flex-col justify-between p-5">
       <div className="space-y-4">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <span className="text-[11px] font-bold text-[#2A5C3C] bg-[#EBF4EE] px-2.5 py-1 rounded-full">
-            <i className="fa-solid fa-graduation-cap" /> Módulo de Preparación
-          </span>
-          <span className="text-xs font-mono text-slate-400">Paso {Math.min(localStep, EDU_CONVERSATION.length)} de {EDU_CONVERSATION.length}</span>
-        </div>
+        <PageHeader
+          title="Finanzas Cooperativas"
+          subtitle="Completa tus saberes para liberar tu solicitud de microcrédito grupal."
+          right={
+            <span className="text-xs font-mono text-slate-400">Paso {Math.min(localStep, EDU_CONVERSATION.length)} de {EDU_CONVERSATION.length}</span>
+          }
+        />
 
-        <div className="space-y-1">
-          <h3 className="text-lg font-black text-[#1E3E28]">Finanzas Cooperativas</h3>
-          <p className="text-[11px] text-slate-500">
-            Completa tus saberes para liberar tu solicitud de microcrédito grupal.
-          </p>
-        </div>
+        <span className="block text-[11px] font-bold text-[#2A5C3C] bg-[#EBF4EE] px-2.5 py-1 rounded-full w-fit">
+          <i className="fa-solid fa-graduation-cap" /> Módulo de Preparación
+        </span>
 
         {/* Progress */}
         <div className="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-sm space-y-2">
