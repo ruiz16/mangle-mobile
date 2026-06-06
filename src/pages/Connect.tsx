@@ -43,21 +43,17 @@ export default function Connect() {
       const signature = await signMessage(siweMessage, result.address);
       setSiweAuth(siweMessage, signature);
 
-      // Step 3: Exchange signature for Supabase session tokens (non-blocking)
-      try {
-        const authResult = await apiPost<{
-          ok: boolean;
-          isNewUser: boolean;
-          access_token: string;
-          refresh_token: string;
-        }>('/api/auth/siwe', { message: siweMessage, signature });
-        if (authResult.access_token) {
-          setAuthTokens(authResult.access_token, authResult.refresh_token);
-        }
-      } catch {
-        // API not available — continue offline with local state
-        console.warn('[Connect] SIWE exchange failed, continuing offline');
+      // Step 3: Exchange signature for Supabase session tokens (blocking)
+      const authResult = await apiPost<{
+        ok: boolean;
+        isNewUser: boolean;
+        access_token: string;
+        refresh_token: string;
+      }>('/api/auth/siwe', { message: siweMessage, signature });
+      if (!authResult.access_token) {
+        throw new Error('El servidor no devolvió un token de acceso.');
       }
+      setAuthTokens(authResult.access_token, authResult.refresh_token);
       setIsSigning(false);
 
       showToast(

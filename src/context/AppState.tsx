@@ -63,6 +63,7 @@ interface AppStateContextValue {
   setSiweAuth: (message: string, signature: `0x${string}`) => void;
   setAuthTokens: (token: string, refreshToken: string) => void;
   setFullName: (name: string) => void;
+  setEmail: (email: string) => void;
   setRole: (role: string) => void;
   setPhone: (phone: string) => void;
   setMunicipio: (m: Municipio) => void;
@@ -127,6 +128,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const setFullName = useCallback((name: string) => {
     setState((prev) => ({ ...prev, fullName: name }));
+  }, []);
+  const setEmail = useCallback((email: string) => {
+    setState((prev) => ({ ...prev, email }));
   }, []);
   const setRole = useCallback((role: string) => {
     setState((prev) => ({ ...prev, role }));
@@ -328,6 +332,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         setSiweAuth,
         setAuthTokens,
         setFullName,
+        setEmail,
         setRole,
         setPhone,
         setMunicipio,

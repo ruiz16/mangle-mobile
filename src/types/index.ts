@@ -58,6 +58,7 @@ export interface AppState {
   // User profile
   registered: boolean;
   fullName: string;
+  email: string;
   role: string;
   phone: string;
   municipio: Municipio;
@@ -108,6 +109,7 @@ export function createDefaultState(): AppState {
     copmBalance: '0.00',
     registered: false,
     fullName: '',
+    email: '',
     role: '',
     phone: '',
     municipio: 'guapi',

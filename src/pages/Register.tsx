@@ -10,6 +10,7 @@ export default function Register() {
   const {
     state,
     setFullName,
+    setEmail,
     setRole,
     setPhone,
     setMunicipio,
@@ -22,6 +23,7 @@ export default function Register() {
   const [, navigate] = useLocation();
 
   const [localName, setLocalName] = useState(state.fullName);
+  const [localEmail, setLocalEmail] = useState(state.email);
   const [localPhone, setLocalPhone] = useState(state.phone);
   const [localCode, setLocalCode] = useState(state.gaccCode);
   const [localGaccName, setLocalGaccName] = useState(state.gaccName);
@@ -35,8 +37,17 @@ export default function Register() {
   };
 
   const handleSubmit = async () => {
+    // ---- Validaciones ----
     if (!localName.trim()) {
       showToast('Faltan Campos', 'Por favor ingresa tu nombre.', 'warning');
+      return;
+    }
+    if (!localEmail.trim()) {
+      showToast('Faltan Campos', 'Por favor ingresa tu correo electrónico.', 'warning');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(localEmail.trim())) {
+      showToast('Email Inválido', 'Por favor ingresa un correo electrónico válido.', 'warning');
       return;
     }
     if (!localPhone.trim()) {
@@ -44,13 +55,16 @@ export default function Register() {
       return;
     }
 
-    setFullName(localName.trim());
-    setPhone(localPhone.trim());
-
     if (state.gaccMode === 'join' && !localCode.trim()) {
       showToast('Falta Código', 'Por favor ingresa un código de invitación.', 'warning');
       return;
     }
+
+    // ---- Guardar en estado local ----
+    setFullName(localName.trim());
+    setEmail(localEmail.trim());
+    setPhone(localPhone.trim());
+
     if (state.gaccMode === 'join') {
       setGaccCode(localCode.trim());
     } else {
@@ -59,34 +73,31 @@ export default function Register() {
 
     registerUser();
 
-    // Create participante on server (non-blocking — fallback to offline)
-    if (state.authToken) {
-      try {
-        await apiPost('/api/participantes', {
-          nombre: localName.trim(),
-          wallet_address: state.walletAddress,
-          rol: 'usuario',
-          codigo_referido: state.referidora || undefined,
-        }, { token: state.authToken });
-      } catch {
-        // API not available — continue with local state
-        console.warn('[Register] fallback to offline');
-      }
+    // ---- Persistir en servidor (blocking) ----
+    try {
+      // 1. Crear participante
+      await apiPost('/api/participantes', {
+        nombre: localName.trim(),
+        email: localEmail.trim(),
+        wallet_address: state.walletAddress,
+        rol: 'usuario',
+        codigo_referido: state.referidora || undefined,
+      }, { token: state.authToken });
 
-      // Create or join GACC via API
-      try {
-        if (state.gaccMode === 'create') {
-          await apiPost('/api/gacc', {
-            nombre: localGaccName.trim() || 'Mi GACC',
-          }, { token: state.authToken });
-        } else if (localCode.trim()) {
-          await apiPost('/api/gacc/unirse', {
-            codigo: localCode.trim().toUpperCase(),
-          }, { token: state.authToken });
-        }
-      } catch {
-        console.warn('[Register] GACC API fallback to offline');
+      // 2. Crear o unirse al GACC
+      if (state.gaccMode === 'create') {
+        await apiPost('/api/gacc', {
+          nombre: localGaccName.trim() || 'Mi GACC',
+        }, { token: state.authToken });
+      } else if (localCode.trim()) {
+        await apiPost('/api/gacc/unirse', {
+          codigo: localCode.trim().toUpperCase(),
+        }, { token: state.authToken });
       }
+    } catch (err: any) {
+      const msg = err?.message || err?.detail || 'Error al registrar en el servidor. Verificá tu conexión e intentá de nuevo.';
+      showToast('Error de Registro', msg, 'error');
+      return; // ❌ No navega — se queda en Register
     }
 
     showToast('Registro Exitoso', 'Bienvenida a MANGLE.', 'success');
@@ -113,6 +124,18 @@ export default function Register() {
               value={localName}
               onChange={(e) => setLocalName(e.target.value)}
               placeholder="Ej. Aura Cecilia Hinestroza"
+              className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-[#2A5C3C] focus:outline-none"
+            />
+          </div>
+
+          {/* Email */}
+          <div>
+            <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Correo Electrónico</label>
+            <input
+              type="email"
+              value={localEmail}
+              onChange={(e) => setLocalEmail(e.target.value)}
+              placeholder="Ej. aura@ejemplo.com"
               className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-[#2A5C3C] focus:outline-none"
             />
           </div>
