@@ -61,6 +61,7 @@ interface AppStateContextValue {
   connectWallet: (address: string, copmBalance?: string) => void;
   setCopmBalance: (value: string) => void;
   setSiweAuth: (message: string, signature: `0x${string}`) => void;
+  setAuthTokens: (token: string, refreshToken: string) => void;
   setFullName: (name: string) => void;
   setRole: (role: string) => void;
   setPhone: (phone: string) => void;
@@ -69,6 +70,7 @@ interface AppStateContextValue {
   setGaccMode: (m: GaccMode) => void;
   setGaccCode: (code: string) => void;
   setGaccName: (name: string) => void;
+  setGaccMembers: (members: Member[]) => void;
   registerUser: () => void;
   advanceEdu: () => boolean; // returns true if completed
   setSelectedAmount: (amount: number) => void;
@@ -117,6 +119,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, siweMessage: message, siweSignature: signature }));
   }, []);
 
+  const setAuthTokens = useCallback((token: string, refreshToken: string) => {
+    setState((prev) => ({ ...prev, authToken: token, refreshToken }));
+  }, []);
+
   // ---------- Registration fields ----------
 
   const setFullName = useCallback((name: string) => {
@@ -142,6 +148,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, []);
   const setGaccName = useCallback((name: string) => {
     setState((prev) => ({ ...prev, gaccName: name }));
+  }, []);
+  const setGaccMembers = useCallback((members: Member[]) => {
+    setState((prev) => ({ ...prev, gaccMembers: members }));
   }, []);
 
   // ---------- Register User ----------
@@ -317,6 +326,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         connectWallet,
         setCopmBalance,
         setSiweAuth,
+        setAuthTokens,
         setFullName,
         setRole,
         setPhone,
@@ -325,6 +335,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         setGaccMode,
         setGaccCode,
         setGaccName,
+        setGaccMembers,
         registerUser,
         advanceEdu,
         setSelectedAmount,

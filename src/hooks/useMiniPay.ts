@@ -40,7 +40,7 @@ export interface UseMiniPayReturn {
   /** Connect to wallet — throws if fails */
   connect: () => Promise<{ address: Address; copmBalance: bigint }>;
   /** Sign a SIWE message with personal_sign — throws if fails */
-  signMessage: (message: string) => Promise<`0x${string}`>;
+  signMessage: (message: string, signerAddress: Address) => Promise<`0x${string}`>;
 }
 
 export function useMiniPay(): UseMiniPayReturn {
@@ -159,20 +159,20 @@ export function useMiniPay(): UseMiniPayReturn {
   // --------------------------------------------------------------------------
   // Sign a SIWE message with personal_sign
   // --------------------------------------------------------------------------
-  const signMessage = useCallback(async (message: string): Promise<`0x${string}`> => {
-    if (!address) {
+  const signMessage = useCallback(async (message: string, signerAddress: Address): Promise<`0x${string}`> => {
+    if (!signerAddress) {
       throw new Error('Primero conectá tu wallet.');
     }
 
     const walletClient = getWalletClient();
 
     const signature = await walletClient.signMessage({
-      account: address,
+      account: signerAddress,
       message,
     });
 
     return signature;
-  }, [address, getWalletClient]);
+  }, [getWalletClient]);
 
   return {
     isMiniPay,

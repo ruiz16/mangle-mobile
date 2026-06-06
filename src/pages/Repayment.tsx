@@ -15,6 +15,11 @@ export default function Repayment() {
   const handlePay = () => {
     if (!isActive || isComplete) return;
     payInstallment();
+
+    // NOTE: Real payment via POST /api/pago requires on-chain tx_hash
+    // and cuota_id — out of scope for current integration.
+    // The server will be called once the mobile supports real payments.
+
     showToast('Transacción Enviada', 'Ejecutando pagarCuota() en Celo Mainnet...', 'success');
     setTimeout(() => {
       showToast('Pago Confirmado', 'Comprobante emitido con timestamp on-chain.', 'success');

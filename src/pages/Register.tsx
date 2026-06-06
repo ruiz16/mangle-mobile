@@ -4,6 +4,7 @@ import { useAppState } from '../context/AppState';
 import { REFERIDORAS_BY_GACC } from '../lib/data';
 import { showToast } from '../components/Toast';
 import type { Municipio } from '../types';
+import { apiPost } from '../lib/api';
 
 export default function Register() {
   const {
@@ -33,7 +34,7 @@ export default function Register() {
     setReferidora('');
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!localName.trim()) {
       showToast('Faltan Campos', 'Por favor ingresa tu nombre.', 'warning');
       return;
@@ -57,13 +58,39 @@ export default function Register() {
     }
 
     registerUser();
-    showToast(
-      state.gaccMode === 'join' ? 'Unión Exitosa' : 'GACC Creado',
-      state.gaccMode === 'join' ? 'Unida al grupo exitosamente.' : 'GACC creado exitosamente.',
-      'success',
-    );
 
-    setTimeout(() => navigate('/education'), 1200);
+    // Create participante on server (non-blocking — fallback to offline)
+    if (state.authToken) {
+      try {
+        await apiPost('/api/participantes', {
+          nombre: localName.trim(),
+          wallet_address: state.walletAddress,
+          rol: 'usuario',
+          codigo_referido: state.referidora || undefined,
+        }, { token: state.authToken });
+      } catch {
+        // API not available — continue with local state
+        console.warn('[Register] fallback to offline');
+      }
+
+      // Create or join GACC via API
+      try {
+        if (state.gaccMode === 'create') {
+          await apiPost('/api/gacc', {
+            nombre: localGaccName.trim() || 'Mi GACC',
+          }, { token: state.authToken });
+        } else if (localCode.trim()) {
+          await apiPost('/api/gacc/unirse', {
+            codigo: localCode.trim().toUpperCase(),
+          }, { token: state.authToken });
+        }
+      } catch {
+        console.warn('[Register] GACC API fallback to offline');
+      }
+    }
+
+    showToast('Registro Exitoso', 'Bienvenida a MANGLE.', 'success');
+    setTimeout(() => navigate('/education'), 800);
   };
 
   return (

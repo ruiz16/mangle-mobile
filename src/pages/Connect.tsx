@@ -6,9 +6,10 @@ import { showToast } from '../components/Toast';
 import { formatCopmBalance } from '../lib/currency';
 import { createSiweMessage } from '../lib/siwe';
 import { getActiveChain } from '../lib/network';
+import { apiPost } from '../lib/api';
 
 export default function Connect() {
-  const { connectWallet, setSiweAuth } = useAppState();
+  const { state, connectWallet, setSiweAuth, setAuthTokens } = useAppState();
   const [, navigate] = useLocation();
   const { isMiniPay, isAvailable, connect, signMessage, isConnecting, error } = useMiniPay();
 
@@ -39,8 +40,24 @@ export default function Connect() {
       setIsSigning(true);
       const chainId = getActiveChain().id;
       const siweMessage = createSiweMessage({ address: result.address, chainId });
-      const signature = await signMessage(siweMessage);
+      const signature = await signMessage(siweMessage, result.address);
       setSiweAuth(siweMessage, signature);
+
+      // Step 3: Exchange signature for Supabase session tokens (non-blocking)
+      try {
+        const authResult = await apiPost<{
+          ok: boolean;
+          isNewUser: boolean;
+          access_token: string;
+          refresh_token: string;
+        }>('/api/auth/siwe', { message: siweMessage, signature });
+        if (authResult.access_token) {
+          setAuthTokens(authResult.access_token, authResult.refresh_token);
+        }
+      } catch {
+        // API not available — continue offline with local state
+        console.warn('[Connect] SIWE exchange failed, continuing offline');
+      }
       setIsSigning(false);
 
       showToast(
@@ -49,7 +66,7 @@ export default function Connect() {
         'success',
       );
 
-      setTimeout(() => navigate('/register'), 800);
+      setTimeout(() => navigate(state.registered ? '/education' : '/register'), 800);
     } catch (err: any) {
       setIsSigning(false);
       const msg = err?.shortMessage || err?.message || 'Error al conectar la wallet.';

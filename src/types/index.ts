@@ -86,6 +86,8 @@ export interface AppState {
   // SIWE Auth
   siweMessage: string | null;
   siweSignature: `0x${string}` | null;
+  authToken: string | null;
+  refreshToken: string | null;
 
   // Reputation
   reputation: number; // 0–100
@@ -126,6 +128,8 @@ export function createDefaultState(): AppState {
     totalInstallments: 4,
     siweMessage: null,
     siweSignature: null,
+    authToken: null,
+    refreshToken: null,
     reputation: 80,
     nodeAlert: false,
     alertPartnerName: '',

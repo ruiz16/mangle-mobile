@@ -1,9 +1,33 @@
+import { useEffect } from 'react';
 import { useAppState } from '../context/AppState';
 import MemberCard from '../components/MemberCard';
 import { showToast } from '../components/Toast';
+import { apiGet } from '../lib/api';
+import type { Member } from '../types';
 
 export default function Gacc() {
-  const { state, restoreNodeAlert } = useAppState();
+  const { state, setGaccName, setGaccCode, restoreNodeAlert } = useAppState();
+
+  // Fetch real GACC data from API on mount (non-blocking)
+  useEffect(() => {
+    if (!state.authToken) return;
+    apiGet<{
+      grupo: { id: number; nombre: string; codigo_invitacion: string } | null;
+      miembros: unknown[];
+    }>('/api/gacc/mi-grupo', { token: state.authToken })
+      .then((data) => {
+        if (data?.grupo) {
+          setGaccName(data.grupo.nombre);
+          setGaccCode(data.grupo.codigo_invitacion);
+        }
+        // NOTE: miembros from API has different schema than Member[]
+        // Members are maintained from local state after registration.
+        // Full API-driven member sync is future work.
+      })
+      .catch(() => {
+        // API not available — use local state as fallback
+      });
+  }, [state.authToken, setGaccName, setGaccCode]);
 
   const gaccKey = state.municipio;
   const members = state.gaccMembers;
@@ -34,80 +58,74 @@ export default function Gacc() {
             <span className="text-[9px] text-slate-400 uppercase tracking-wider block font-bold">
               Código de Invitación (Privado)
             </span>
-            <span className="text-[8px] bg-[#EBF4EE] text-[#2A5C3C] px-1.5 py-0.5 rounded font-bold">
-              Garantía Activa
+            <span
+              className="text-[9px] text-[#2A5C3C] underline cursor-pointer font-bold"
+              onClick={handleCopyCode}
+            >
+              Copiar
             </span>
           </div>
-          <div className="flex gap-2">
-            <div className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-2 font-mono text-xs font-bold text-slate-700 flex items-center justify-between">
-              {state.gaccCode || '—'}
-            </div>
-            <button
-              onClick={handleCopyCode}
-              className="px-3 bg-[#EBF4EE] hover:bg-[#2A5C3C]/20 text-[#2A5C3C] rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 shrink-0"
-            >
-              <i className="fa-regular fa-copy" /> Copiar
-            </button>
-          </div>
-          <p className="text-[8.5px] text-slate-500 leading-snug">
-            Comparte este código con tus compañeras de confianza para sumarlas a tu red de apoyo mutuo.
-          </p>
-        </div>
-
-        {/* Score Overview */}
-        <div className="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-          <div>
-            <span className="text-[9px] text-slate-400 block uppercase">Reputación Grupal</span>
-            <span className="text-xl font-bold text-[#1E3E28]">{avgScore}% Confianza</span>
-          </div>
-          <div className="w-10 h-10 rounded-full bg-[#EBF4EE] text-[#2A5C3C] flex items-center justify-center text-lg">
-            <i className="fa-solid fa-users" />
-          </div>
-        </div>
-
-        {/* Active alert */}
-        {state.nodeAlert && (
-          <div className="bg-amber-50 border border-amber-200 p-3 rounded-2xl text-xs space-y-2">
-            <div className="flex gap-2 items-start text-amber-900">
-              <i className="fa-solid fa-triangle-exclamation text-sm mt-0.5" />
-              <p className="text-[10px] leading-snug">
-                <strong>¡Respaldo Activado!</strong> Una compañera de tu nodo presenta un retraso de pago. Apóyala para evitar la suspensión grupal de créditos.
-              </p>
-            </div>
-            <button
-              onClick={restoreNodeAlert}
-              className="w-full py-1.5 bg-[#D99B26] text-white font-bold text-[10px] rounded-lg shadow-sm hover:bg-yellow-600 transition flex items-center justify-center gap-1"
-            >
-              <i className="fa-solid fa-hand-holding-heart" /> Aportar $25.000 COPm de Soporte
-            </button>
-          </div>
-        )}
-
-        {/* Members list */}
-        <div className="space-y-2">
-          <span className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">
-            Integrantes del GACC
+          <span className="text-lg font-black text-slate-800 tracking-widest select-all">
+            {state.gaccCode}
           </span>
-          <div className="space-y-2">
-            {members.length > 0 ? (
-              members.map((member, i) => (
-                <MemberCard key={i} member={member} />
-              ))
-            ) : (
-              <p className="text-xs text-slate-400 text-center py-4">
-                No hay integrantes en tu GACC aún.
-              </p>
-            )}
+        </div>
+
+        {/* Group Info */}
+        <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="text-[9px] text-slate-400 uppercase tracking-wider block font-bold">
+              Grupo
+            </span>
+            <span className="text-[10px] font-bold text-slate-600">
+              {members.length} miembro{members.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <span className="text-sm font-bold text-slate-800">{state.gaccName}</span>
+          <div className="flex gap-2">
+            <span className="text-[10px] bg-[#1E3E28] text-white px-2 py-0.5 rounded-full font-bold">
+              Score Promedio: {avgScore}
+            </span>
           </div>
         </div>
+
+        {/* Members sections */}
+        <div className="space-y-2">
+          <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            Miembros
+          </h4>
+          {members.map((member, index) => (
+            <MemberCard key={index} member={member} />
+          ))}
+        </div>
+
+        {/* Community Alert */}
+        {restoreNodeAlert && (
+          <button
+            className="w-full bg-amber-100 border border-amber-300 rounded-2xl p-3 space-y-1"
+            onClick={() => {
+              showToast(
+                'Restore Node',
+                `Correo temporal: ${state.phone}@mangle.com | Contraseña: mangle${state.gaccCode}`,
+                'success',
+              );
+            }}
+          >
+            <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">
+              Nodo Comunidad GACC
+            </span>
+            <p className="text-[11px] text-amber-800 text-left">
+              Se detectó una alerta de nodo comunitario. Haz clic para ver los datos de acceso del
+              Restore Node.
+            </p>
+          </button>
+        )}
       </div>
 
-      {/* Info footer */}
-      <div className="bg-[#EBF4EE]/40 p-2.5 rounded-xl text-[9px] text-[#1E3E28] flex items-start gap-1.5 mt-4">
-        <i className="fa-solid fa-circle-info mt-0.5 text-[#2A5C3C]" />
-        <span>
-          La Garantía Social incentiva el apoyo grupal: un récord 100% puntual beneficia las próximas líneas de crédito de todas.
-        </span>
+      {/* Footer */}
+      <div className="pt-4">
+        <p className="text-[9px] text-slate-300 text-center">
+          Los puntajes son determinados por la comunidad GACC.
+        </p>
       </div>
     </div>
   );

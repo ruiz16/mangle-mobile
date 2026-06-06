@@ -6,6 +6,7 @@ import { LOAN_CATEGORIES } from '../types';
 import type { LoanCategory } from '../types';
 import { showToast } from '../components/Toast';
 import { copmToCusd, formatCusd, getExchangeRate } from '../lib/currency';
+import { apiPost } from '../lib/api';
 
 export default function Request() {
   const { state, setSelectedAmount, setCategory, submitLoan, approveLoan } = useAppState();
@@ -21,9 +22,24 @@ export default function Request() {
     setCategory(cat);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setSubmitting(true);
     submitLoan();
+
+    // Create credit on server (non-blocking)
+    if (state.authToken) {
+      try {
+        await apiPost('/api/creditos', {
+          monto: state.selectedAmount,
+          plazo_dias: state.totalInstallments * 7, // weekly installments
+          numero_cuotas: state.totalInstallments,
+          descripcion: state.category,
+        }, { token: state.authToken });
+      } catch {
+        console.warn('[Request] API fallback to offline');
+      }
+    }
+
     showToast('Solicitud Enviada', 'Tu crédito está pendiente de aprobación...', 'success');
 
     // Simula el desembolso on-chain (en producción lo haría el admin/backend)
