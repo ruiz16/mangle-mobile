@@ -2,12 +2,15 @@
 // Mangle — Shared Types
 // =============================================================================
 
-/** GACC member */
+/** GACC member — aligned with web's gacc_miembros + participantes join */
 export interface Member {
-  name: string;
-  role: string;
+  id: string;             // gacc_miembros.id
+  participanteId: string; // gacc_miembros.participante_id
+  name: string;           // participantes.nombre
+  role: string;           // participantes.rol
   status: 'Al día' | 'En Alerta';
-  score: number;
+  score: number;          // participantes.score_reputacion
+  validado: boolean;      // gacc_miembros.validado_en IS NOT NULL
   self: boolean;
 }
 

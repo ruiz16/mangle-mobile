@@ -149,22 +149,27 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
       if (prev.gaccMode === 'join') {
         const code = (gaccCode || '').toUpperCase();
-        if (code.includes('TIMBIQUI') || code.includes('202')) {
+        if (code.includes('TIMBIQUI')) {
           gaccMembers = getDefaultGaccMembers('timbiqui', prev.fullName, prev.reputation);
           gaccName = 'Saberes del Río';
-          gaccCode = 'TIMBIQUI-202';
+          gaccCode = 'MANGLE-TIMBIQUI';
         } else {
           gaccMembers = getDefaultGaccMembers('guapi', prev.fullName, prev.reputation);
           gaccName = 'Tejiendo Sueños';
-          gaccCode = 'GUAPI-101';
+          gaccCode = 'MANGLE-GUAPI';
         }
       } else {
-        // Create flow
-        const randomId = Math.floor(100 + Math.random() * 900);
-        gaccCode = `${prev.municipio.toUpperCase()}-${randomId}`;
+        // Create flow — generates MANGLE-XXXX code
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let code = '';
+        for (let i = 0; i < 4; i++) {
+          code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        const selfId = `mock-miembro-${Date.now()}`;
+        gaccCode = `MANGLE-${code}`;
         gaccName = prev.gaccName || 'Mi GACC';
         gaccMembers = [
-          { name: prev.fullName, role: prev.role || 'Emprendedora', status: 'Al día', score: prev.reputation, self: true },
+          { id: selfId, participanteId: `mock-part-${selfId}`, name: prev.fullName, role: prev.role || 'Emprendedora', status: 'Al día', score: prev.reputation, validado: true, self: true },
         ];
       }
 

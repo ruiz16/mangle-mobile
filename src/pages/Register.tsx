@@ -169,7 +169,7 @@ export default function Register() {
                   type="text"
                   value={localCode}
                   onChange={(e) => setLocalCode(e.target.value.toUpperCase())}
-                  placeholder="Ej: GUAPI-101"
+                  placeholder="Ej: MANGLE-GUAPI"
                   className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-mono focus:ring-1 focus:ring-[#2A5C3C] focus:outline-none uppercase"
                 />
               </div>
