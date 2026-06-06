@@ -1,15 +1,21 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { useAppState } from '../context/AppState';
 import AmountSlider from '../components/AmountSlider';
 import { LOAN_CATEGORIES } from '../types';
 import type { LoanCategory } from '../types';
 import { showToast } from '../components/Toast';
+import { copmToCusd, formatCusd, getExchangeRate } from '../lib/currency';
 
 export default function Request() {
-  const { state, setSelectedAmount, setCategory, submitLoan } = useAppState();
+  const { state, setSelectedAmount, setCategory, submitLoan, approveLoan } = useAppState();
   const [, navigate] = useLocation();
   const [submitting, setSubmitting] = useState(false);
+
+  const cusdEquivalent = useMemo(
+    () => copmToCusd(state.selectedAmount),
+    [state.selectedAmount],
+  );
 
   const handleCategoryClick = (cat: LoanCategory) => {
     setCategory(cat);
@@ -18,10 +24,12 @@ export default function Request() {
   const handleSubmit = () => {
     setSubmitting(true);
     submitLoan();
-    showToast('Solicitud Enviada', 'Procesando firma en el smart contract...', 'success');
+    showToast('Solicitud Enviada', 'Tu crédito está pendiente de aprobación...', 'success');
 
+    // Simula el desembolso on-chain (en producción lo haría el admin/backend)
     setTimeout(() => {
-      showToast('¡Aprobado & Desembolsado!', 'COPm transferido con éxito a tu MiniPay.', 'success');
+      approveLoan();
+      showToast('¡Crédito Desembolsado!', 'COPm transferido con éxito a tu wallet.', 'success');
       setSubmitting(false);
       navigate('/repayment');
     }, 2000);
@@ -43,6 +51,17 @@ export default function Request() {
       <div className="space-y-4 mt-3">
         {/* Slider */}
         <AmountSlider value={state.selectedAmount} onChange={setSelectedAmount} />
+
+        {/* Dual-currency display */}
+        <div className="flex justify-between items-center bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
+          <span className="text-[10px] font-medium text-slate-500">
+            <i className="fa-solid fa-exchange-alt mr-1 text-[9px]" />
+            Equivalente blockchain
+          </span>
+          <span className="text-xs font-bold text-slate-700">
+            ≈ {formatCusd(cusdEquivalent)}
+          </span>
+        </div>
 
         {/* Category */}
         <div className="space-y-2">

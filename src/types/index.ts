@@ -33,6 +33,12 @@ export type GaccMode = 'join' | 'create';
 /** Municipios */
 export type Municipio = 'guapi' | 'timbiqui';
 
+/** Credit state — aligned with web app (pendiente → desembolsado → pagado) */
+export type CreditEstado = 'ninguno' | 'pendiente' | 'desembolsado' | 'pagado';
+
+/** Currency type — COPm (local currency) or cUSD (Celo Dollar) */
+export type Moneda = 'COPm' | 'cUSD';
+
 /** Navigation tab */
 export type NavTab = 'education' | 'request' | 'gacc' | 'repayment' | 'credential';
 
@@ -67,7 +73,10 @@ export interface AppState {
   // Credit
   selectedAmount: number;
   category: LoanCategory;
-  creditApproved: boolean;
+  creditEstado: CreditEstado;
+  moneda: Moneda;
+  montoCusd: number;
+  tasaCambio: number;
   installmentsPaid: number;
   totalInstallments: number;
 
@@ -102,7 +111,10 @@ export function createDefaultState(): AppState {
     currentEduStep: 1,
     selectedAmount: 100000,
     category: 'insumos',
-    creditApproved: false,
+    creditEstado: 'ninguno',
+    moneda: 'COPm',
+    montoCusd: 0,
+    tasaCambio: 3633.45,
     installmentsPaid: 0,
     totalInstallments: 4,
     reputation: 80,

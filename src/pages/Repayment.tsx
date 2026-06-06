@@ -6,13 +6,14 @@ export default function Repayment() {
   const { state, payInstallment } = useAppState();
 
   const weeklyQuota = state.selectedAmount / 4;
-  const remainingDebt = state.creditApproved
+  const remainingDebt = state.creditEstado === 'desembolsado'
     ? state.selectedAmount - weeklyQuota * state.installmentsPaid
     : 0;
-  const isComplete = state.installmentsPaid >= state.totalInstallments;
+  const isActive = state.creditEstado === 'desembolsado';
+  const isComplete = isActive && state.installmentsPaid >= state.totalInstallments;
 
   const handlePay = () => {
-    if (isComplete) return;
+    if (!isActive || isComplete) return;
     payInstallment();
     showToast('Transacción Enviada', 'Ejecutando pagarCuota() en Celo Mainnet...', 'success');
     setTimeout(() => {
@@ -77,7 +78,7 @@ export default function Repayment() {
                 Saldo pendiente de pago
               </span>
               <h4 className="text-2xl font-black mt-0.5">
-                {state.creditApproved ? `${formatCOP(remainingDebt)} COPm` : '—'}
+                {isActive ? `${formatCOP(remainingDebt)} COPm` : '—'}
               </h4>
             </div>
             <span className="text-[9px] bg-white/20 px-2 py-0.5 rounded font-mono">Celo Sepolia</span>
@@ -89,7 +90,7 @@ export default function Repayment() {
             <div>
               <span className="text-[9px] text-emerald-200 block">Cuota semanal</span>
               <strong className="font-bold">
-                {state.creditApproved ? `${formatCOP(weeklyQuota)} COPm` : '—'}
+                {isActive ? `${formatCOP(weeklyQuota)} COPm` : '—'}
               </strong>
             </div>
             <div>
@@ -100,7 +101,7 @@ export default function Repayment() {
         </div>
 
         {/* Cuotas Track */}
-        {state.creditApproved && (
+        {isActive && (
           <div className="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-sm space-y-2">
             <span className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">
               Tus Cuotas
@@ -137,16 +138,22 @@ export default function Repayment() {
 
       {/* Payment trigger */}
       <div className="pt-3">
-        {isComplete ? (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center text-[10px] text-emerald-800">
-            <i className="fa-solid fa-circle-check text-base block mb-1" />
-            ¡Felicitaciones {state.fullName || '!'} Completaste tu ciclo. Revisa tu Credencial de confianza.
+        {state.creditEstado === 'pendiente' ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
+            <i className="fa-solid fa-hourglass-half text-amber-600 text-base block mb-1" />
+            <p className="text-[11px] font-bold text-amber-800">Crédito Solicitado</p>
+            <p className="text-[10px] text-amber-600 mt-1">Estamos revisando tu solicitud. Vuelve pronto para ver si fue aprobada.</p>
           </div>
-        ) : state.creditApproved ? (
+        ) : state.creditEstado === 'pagado' ? (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+            <i className="fa-solid fa-circle-check text-emerald-600 text-base block mb-1" />
+            <p className="text-[11px] font-bold text-emerald-800">¡Ciclo Completado!</p>
+            <p className="text-[10px] text-emerald-600 mt-1">Felicitaciones {state.fullName || ''}. Completaste tu ciclo. Revisa tu Credencial de confianza.</p>
+          </div>
+        ) : isActive ? (
           <button
             onClick={handlePay}
-            disabled={!state.creditApproved}
-            className="w-full py-3 bg-[#2A5C3C] hover:bg-[#1E3E28] disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5"
+            className="w-full py-3 bg-[#2A5C3C] hover:bg-[#1E3E28] text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5"
           >
             <i className="fa-solid fa-money-bill-transfer" /> Pagar Cuota Semanal ({formatCOP(weeklyQuota)} COPm)
           </button>

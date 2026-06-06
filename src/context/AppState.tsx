@@ -15,12 +15,15 @@ import {
 import type {
   AppState,
   LoanCategory,
+  CreditEstado,
+  Moneda,
   GaccMode,
   Municipio,
   Member,
 } from '../types';
 import { createDefaultState } from '../types';
 import { getDefaultGaccMembers } from '../lib/data';
+import { getExchangeRate, copmToCusd } from '../lib/currency';
 
 const STORAGE_KEY = 'mangle:state';
 
@@ -70,6 +73,7 @@ interface AppStateContextValue {
   setSelectedAmount: (amount: number) => void;
   setCategory: (cat: LoanCategory) => void;
   submitLoan: () => void;
+  approveLoan: () => void;
   payInstallment: () => void;
   resetState: () => void;
 
@@ -201,15 +205,35 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const submitLoan = useCallback(() => {
-    setState((prev) => ({ ...prev, creditApproved: true }));
+    setState((prev) => {
+      const tasaCambio = getExchangeRate();
+      const montoCusd = copmToCusd(prev.selectedAmount, tasaCambio);
+      return {
+        ...prev,
+        creditEstado: 'pendiente',
+        moneda: 'COPm',
+        montoCusd,
+        tasaCambio,
+      };
+    });
+  }, []);
+
+  const approveLoan = useCallback(() => {
+    setState((prev) => {
+      if (prev.creditEstado !== 'pendiente') return prev;
+      return { ...prev, creditEstado: 'desembolsado' };
+    });
   }, []);
 
   const payInstallment = useCallback(() => {
     setState((prev) => {
       if (prev.installmentsPaid >= prev.totalInstallments) return prev;
+      const newPaid = prev.installmentsPaid + 1;
+      const isComplete = newPaid >= prev.totalInstallments;
       return {
         ...prev,
-        installmentsPaid: prev.installmentsPaid + 1,
+        installmentsPaid: newPaid,
+        creditEstado: isComplete ? 'pagado' : prev.creditEstado,
         reputation: Math.min(100, prev.reputation + 5),
       };
     });
@@ -295,6 +319,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         setSelectedAmount,
         setCategory,
         submitLoan,
+        approveLoan,
         payInstallment,
         resetState,
         triggerNodeAlert,

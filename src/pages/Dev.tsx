@@ -11,6 +11,7 @@ export default function Dev() {
     payInstallment,
     resetState,
     submitLoan,
+    approveLoan,
   } = useAppState();
   const [, navigate] = useLocation();
 
@@ -53,9 +54,14 @@ export default function Dev() {
           </span>
         </div>
         <div className="bg-slate-50 p-2 rounded-xl border border-slate-200">
-          <span className="text-slate-400 block">Crédito</span>
-          <span className={`font-bold ${state.creditApproved ? 'text-emerald-600' : 'text-slate-500'}`}>
-            {state.creditApproved ? 'APROBADO' : 'PENDIENTE'}
+          <span className="text-slate-400 block">Estado Crédito</span>
+          <span className={`font-bold ${
+            state.creditEstado === 'desembolsado' ? 'text-emerald-600' :
+            state.creditEstado === 'pendiente' ? 'text-amber-600' :
+            state.creditEstado === 'pagado' ? 'text-blue-600' :
+            'text-slate-400'
+          }`}>
+            {state.creditEstado === 'ninguno' ? '—' : state.creditEstado.toUpperCase()}
           </span>
         </div>
       </div>
@@ -113,23 +119,33 @@ export default function Dev() {
       {/* Credit controls */}
       <div className="space-y-2.5">
         <span className="text-xs font-bold text-slate-600 block uppercase tracking-wider">Crédito</span>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <button
             onClick={() => {
               submitLoan();
-              showToast('Crédito Aprobado', 'Simulación de aprobación completada.', 'success');
+              showToast('Crédito Solicitado', 'Estado → pendiente', 'success');
             }}
-            disabled={state.creditApproved}
+            disabled={state.creditEstado !== 'ninguno'}
             className="py-3 px-3 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-30 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-xl transition"
           >
-            Aprobar Crédito
+            Solicitar
+          </button>
+          <button
+            onClick={() => {
+              approveLoan();
+              showToast('Crédito Desembolsado', 'Estado → desembolsado', 'success');
+            }}
+            disabled={state.creditEstado !== 'pendiente'}
+            className="py-3 px-3 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-30 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-xl transition"
+          >
+            Desembolsar
           </button>
           <button
             onClick={() => {
               payInstallment();
               showToast('Cuota Pagada', 'Simulación de pago completada.', 'success');
             }}
-            disabled={state.installmentsPaid >= state.totalInstallments}
+            disabled={state.creditEstado !== 'desembolsado' || state.installmentsPaid >= state.totalInstallments}
             className="py-3 px-3 bg-teal-50 hover:bg-teal-100 disabled:opacity-30 border border-teal-200 text-teal-700 text-xs font-bold rounded-xl transition"
           >
             Pagar Cuota
