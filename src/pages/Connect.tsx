@@ -4,14 +4,17 @@ import { useAppState } from '../context/AppState';
 import { useMiniPay } from '../hooks/useMiniPay';
 import { showToast } from '../components/Toast';
 import { formatCopmBalance } from '../lib/currency';
+import { createSiweMessage } from '../lib/siwe';
+import { getActiveChain } from '../lib/network';
 
 export default function Connect() {
-  const { connectWallet } = useAppState();
+  const { connectWallet, setSiweAuth } = useAppState();
   const [, navigate] = useLocation();
-  const { isMiniPay, isAvailable, connect, isConnecting, error } = useMiniPay();
+  const { isMiniPay, isAvailable, connect, signMessage, isConnecting, error } = useMiniPay();
 
   const [localError, setLocalError] = useState<string | null>(null);
   const [copmDisplay, setCopmDisplay] = useState<string | null>(null);
+  const [isSigning, setIsSigning] = useState(false);
 
   // Auto-connect when MiniPay is detected
   useEffect(() => {
@@ -27,19 +30,28 @@ export default function Connect() {
     try {
       const result = await connect();
 
-      // Update AppState with real data
+      // Update AppState with wallet data
       const display = formatCopmBalance(result.copmBalance);
       connectWallet(result.address, display);
       setCopmDisplay(display);
 
+      // Step 2: Sign SIWE message (proves wallet ownership)
+      setIsSigning(true);
+      const chainId = getActiveChain().id;
+      const siweMessage = createSiweMessage({ address: result.address, chainId });
+      const signature = await signMessage(siweMessage);
+      setSiweAuth(siweMessage, signature);
+      setIsSigning(false);
+
       showToast(
-        'Billetera Conectada',
-        `Conexión exitosa con ${isMiniPay ? 'MiniPay' : 'MetaMask'}.`,
+        'Wallet Autenticada',
+        `Conexión y firma exitosas con ${isMiniPay ? 'MiniPay' : 'MetaMask'}.`,
         'success',
       );
 
-      setTimeout(() => navigate('/register'), 1000);
+      setTimeout(() => navigate('/register'), 800);
     } catch (err: any) {
+      setIsSigning(false);
       const msg = err?.shortMessage || err?.message || 'Error al conectar la wallet.';
       setLocalError(msg);
     }
@@ -98,7 +110,7 @@ export default function Connect() {
     <div className="flex-1 flex flex-col justify-between p-6">
       <div className="space-y-4 text-center">
         <div className="w-16 h-16 bg-[#EBF4EE] text-[#2A5C3C] rounded-full flex items-center justify-center mx-auto text-2xl shadow-sm">
-          {isConnecting ? (
+          {isConnecting || isSigning ? (
             <div className="w-6 h-6 border-2 border-[#2A5C3C]/30 border-t-[#2A5C3C] rounded-full animate-spin" />
           ) : (
             <i className="fa-solid fa-wallet" />
@@ -106,7 +118,7 @@ export default function Connect() {
         </div>
 
         <h3 className="text-lg font-bold text-[#1E3E28]">
-          {isMiniPay ? 'Conectando con MiniPay...' : 'Conectar Wallet'}
+          {isSigning ? 'Firmando mensaje...' : isMiniPay ? 'Conectando con MiniPay...' : 'Conectar Wallet'}
         </h3>
 
         {!isMiniPay && (
@@ -128,6 +140,10 @@ export default function Connect() {
           <div className="flex items-center gap-2 text-xs">
             <i className="fa-solid fa-check text-emerald-600" />
             <span>Consultas de balance de COPm</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <i className="fa-solid fa-check text-emerald-600" />
+            <span>Firma de mensaje de autenticación (SIWE)</span>
           </div>
           <div className="h-px bg-slate-100" />
           <div className="flex justify-between items-center text-[10px] font-mono text-slate-400">

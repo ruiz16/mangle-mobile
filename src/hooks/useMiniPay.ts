@@ -39,6 +39,8 @@ export interface UseMiniPayReturn {
   error: string | null;
   /** Connect to wallet — throws if fails */
   connect: () => Promise<{ address: Address; copmBalance: bigint }>;
+  /** Sign a SIWE message with personal_sign — throws if fails */
+  signMessage: (message: string) => Promise<`0x${string}`>;
 }
 
 export function useMiniPay(): UseMiniPayReturn {
@@ -80,6 +82,22 @@ export function useMiniPay(): UseMiniPayReturn {
   // --------------------------------------------------------------------------
   // Connect
   // --------------------------------------------------------------------------
+  // --------------------------------------------------------------------------
+  // Helper: create a wallet client from the current provider
+  // --------------------------------------------------------------------------
+  const getWalletClient = useCallback(() => {
+    if (!provider) {
+      throw new Error('No se encontró una wallet. Instalá MetaMask o abrí esta app en MiniPay.');
+    }
+    return createWalletClient({
+      chain: ACTIVE_CHAIN,
+      transport: custom(provider),
+    });
+  }, [provider]);
+
+  // --------------------------------------------------------------------------
+  // Connect
+  // --------------------------------------------------------------------------
   const connect = useCallback(async (): Promise<{ address: Address; copmBalance: bigint }> => {
     setError(null);
     setIsConnecting(true);
@@ -90,10 +108,7 @@ export function useMiniPay(): UseMiniPayReturn {
       }
 
       // 1. Create wallet client with the browser provider
-      const walletClient = createWalletClient({
-        chain: ACTIVE_CHAIN,
-        transport: custom(provider),
-      });
+      const walletClient = getWalletClient();
 
       // 2. Request accounts — eth_requestAccounts: opens MetaMask popup
       const [connectedAddress] = await walletClient.requestAddresses();
@@ -141,6 +156,24 @@ export function useMiniPay(): UseMiniPayReturn {
     }
   }, [provider]);
 
+  // --------------------------------------------------------------------------
+  // Sign a SIWE message with personal_sign
+  // --------------------------------------------------------------------------
+  const signMessage = useCallback(async (message: string): Promise<`0x${string}`> => {
+    if (!address) {
+      throw new Error('Primero conectá tu wallet.');
+    }
+
+    const walletClient = getWalletClient();
+
+    const signature = await walletClient.signMessage({
+      account: address,
+      message,
+    });
+
+    return signature;
+  }, [address, getWalletClient]);
+
   return {
     isMiniPay,
     isAvailable,
@@ -150,5 +183,6 @@ export function useMiniPay(): UseMiniPayReturn {
     isConnecting,
     error,
     connect,
+    signMessage,
   };
 }

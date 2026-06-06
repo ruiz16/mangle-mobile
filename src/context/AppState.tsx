@@ -60,6 +60,7 @@ interface AppStateContextValue {
   // Actions
   connectWallet: (address: string, copmBalance?: string) => void;
   setCopmBalance: (value: string) => void;
+  setSiweAuth: (message: string, signature: `0x${string}`) => void;
   setFullName: (name: string) => void;
   setRole: (role: string) => void;
   setPhone: (phone: string) => void;
@@ -110,6 +111,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const setCopmBalance = useCallback((value: string) => {
     setState((prev) => ({ ...prev, copmBalance: value }));
+  }, []);
+
+  const setSiweAuth = useCallback((message: string, signature: `0x${string}`) => {
+    setState((prev) => ({ ...prev, siweMessage: message, siweSignature: signature }));
   }, []);
 
   // ---------- Registration fields ----------
@@ -311,6 +316,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         state,
         connectWallet,
         setCopmBalance,
+        setSiweAuth,
         setFullName,
         setRole,
         setPhone,

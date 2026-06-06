@@ -83,6 +83,10 @@ export interface AppState {
   installmentsPaid: number;
   totalInstallments: number;
 
+  // SIWE Auth
+  siweMessage: string | null;
+  siweSignature: `0x${string}` | null;
+
   // Reputation
   reputation: number; // 0–100
 
@@ -120,6 +124,8 @@ export function createDefaultState(): AppState {
     tasaCambio: 3633.45,
     installmentsPaid: 0,
     totalInstallments: 4,
+    siweMessage: null,
+    siweSignature: null,
     reputation: 80,
     nodeAlert: false,
     alertPartnerName: '',
