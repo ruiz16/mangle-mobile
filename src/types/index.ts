@@ -44,6 +44,7 @@ export interface AppState {
   // Wallet
   walletConnected: boolean;
   walletAddress: string | null;
+  copmBalance: string;
 
   // User profile
   registered: boolean;
@@ -86,6 +87,7 @@ export function createDefaultState(): AppState {
   return {
     walletConnected: false,
     walletAddress: null,
+    copmBalance: '0.00',
     registered: false,
     fullName: '',
     role: '',

@@ -55,7 +55,8 @@ interface AppStateContextValue {
   state: AppState;
 
   // Actions
-  connectWallet: (address: string) => void;
+  connectWallet: (address: string, copmBalance?: string) => void;
+  setCopmBalance: (value: string) => void;
   setFullName: (name: string) => void;
   setRole: (role: string) => void;
   setPhone: (phone: string) => void;
@@ -94,8 +95,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   // ---------- Wallet ----------
 
-  const connectWallet = useCallback((address: string) => {
-    setState((prev) => ({ ...prev, walletConnected: true, walletAddress: address }));
+  const connectWallet = useCallback((address: string, copmBalance?: string) => {
+    setState((prev) => ({
+      ...prev,
+      walletConnected: true,
+      walletAddress: address,
+      copmBalance: copmBalance ?? prev.copmBalance,
+    }));
+  }, []);
+
+  const setCopmBalance = useCallback((value: string) => {
+    setState((prev) => ({ ...prev, copmBalance: value }));
   }, []);
 
   // ---------- Registration fields ----------
@@ -271,6 +281,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       value={{
         state,
         connectWallet,
+        setCopmBalance,
         setFullName,
         setRole,
         setPhone,
