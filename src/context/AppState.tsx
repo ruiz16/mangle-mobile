@@ -43,11 +43,16 @@ function loadSavedState(): AppState {
 }
 
 function saveState(state: AppState): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // storage lleno o no disponible — silencio
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw) {
+    try {
+      const saved = JSON.parse(raw);
+      if ((saved.authToken || saved.registered) && !state.authToken && !state.registered) {
+        return; // 🛡️ no pisar datos reales con estado vacío
+      }
+    } catch { /* ignorar parseo corrupto */ }
   }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
 // ---------------------------------------------------------------------------
@@ -120,8 +125,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, siweMessage: message, siweSignature: signature }));
   }, []);
 
-  const setAuthTokens = useCallback((token: string, refreshToken: string) => {
-    setState((prev) => ({ ...prev, authToken: token, refreshToken }));
+  const setAuthTokens = useCallback((token: string, refreshToken: string, isNewUser?: boolean) => {
+    setState((prev) => {
+      const updates: Record<string, unknown> = { authToken: token, refreshToken };
+      if (isNewUser === false) {
+        updates.registered = true;
+      }
+      return { ...prev, ...updates };
+    });
   }, []);
 
   // ---------- Registration fields ----------

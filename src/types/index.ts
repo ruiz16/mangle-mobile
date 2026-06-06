@@ -132,7 +132,7 @@ export function createDefaultState(): AppState {
     siweSignature: null,
     authToken: null,
     refreshToken: null,
-    reputation: 80,
+    reputation: 50,
     nodeAlert: false,
     alertPartnerName: '',
   };

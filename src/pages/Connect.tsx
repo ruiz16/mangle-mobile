@@ -6,10 +6,14 @@ import { showToast } from '../components/Toast';
 import { formatCopmBalance } from '../lib/currency';
 import { createSiweMessage } from '../lib/siwe';
 import { getActiveChain } from '../lib/network';
-import { apiPost } from '../lib/api';
+import { apiGet, apiPost } from '../lib/api';
 
 export default function Connect() {
-  const { state, connectWallet, setSiweAuth, setAuthTokens } = useAppState();
+  const {
+    state, connectWallet, setSiweAuth, setAuthTokens,
+    setFullName, setRole, setPhone,
+    setGaccCode, setGaccName, setGaccMembers,
+  } = useAppState();
   const [, navigate] = useLocation();
   const { isMiniPay, isAvailable, connect, signMessage, isConnecting, error } = useMiniPay();
 
@@ -36,14 +40,18 @@ export default function Connect() {
       connectWallet(result.address, display);
       setCopmDisplay(display);
 
-      // Step 2: Sign SIWE message (proves wallet ownership)
+      // Step 2: Fetch server-validated nonce for SIWE message
       setIsSigning(true);
       const chainId = getActiveChain().id;
-      const siweMessage = createSiweMessage({ address: result.address, chainId });
+      const nonceResult = await apiGet<{ nonce: string }>(
+        `/api/auth/nonce?wallet_address=${result.address}`,
+      );
+      // Step 3: Sign SIWE message (proves wallet ownership)
+      const siweMessage = createSiweMessage({ address: result.address, chainId, nonce: nonceResult.nonce });
       const signature = await signMessage(siweMessage, result.address);
       setSiweAuth(siweMessage, signature);
 
-      // Step 3: Exchange signature for Supabase session tokens (blocking)
+      // Step 4: Exchange signature for Supabase session tokens (blocking)
       const authResult = await apiPost<{
         ok: boolean;
         isNewUser: boolean;
@@ -53,7 +61,7 @@ export default function Connect() {
       if (!authResult.access_token) {
         throw new Error('El servidor no devolvió un token de acceso.');
       }
-      setAuthTokens(authResult.access_token, authResult.refresh_token);
+      setAuthTokens(authResult.access_token, authResult.refresh_token, authResult.isNewUser);
       setIsSigning(false);
 
       showToast(
@@ -62,7 +70,57 @@ export default function Connect() {
         'success',
       );
 
-      setTimeout(() => navigate(state.registered ? '/education' : '/register'), 800);
+      // For existing users, fetch their profile and GACC data from the server
+      if (!authResult.isNewUser) {
+        try {
+          const [meData, gaccData] = await Promise.all([
+            apiGet<{ participante: { nombre: string; rol: string; telefono: string } }>(
+              '/api/participantes/me',
+              { token: authResult.access_token },
+            ),
+            apiGet<{
+              grupo: { id: number; nombre: string; codigo: string } | null;
+              miembro: { id: number } | null;
+              miembros: Array<{
+                id: number;
+                participante_id: number;
+                validado_en: string | null;
+                participante: { nombre: string; score_reputacion: number } | null;
+              }>;
+            }>('/api/gacc/mi-grupo', { token: authResult.access_token }),
+          ]);
+
+          if (meData?.participante) {
+            setFullName(meData.participante.nombre);
+            setRole(meData.participante.rol);
+            setPhone(meData.participante.telefono);
+          }
+
+          if (gaccData?.grupo) {
+            setGaccCode(gaccData.grupo.codigo);
+            setGaccName(gaccData.grupo.nombre);
+
+            if (gaccData.miembros) {
+              const selfId = gaccData.miembro?.id ?? 0;
+              const members = gaccData.miembros.map((m) => ({
+                id: String(m.id),
+                participanteId: String(m.participante_id),
+                name: m.participante?.nombre ?? '',
+                role: '',
+                status: m.validado_en ? 'Al día' as const : 'En Alerta' as const,
+                score: m.participante?.score_reputacion ?? 50,
+                validado: !!m.validado_en,
+                self: m.id === selfId,
+              }));
+              setGaccMembers(members);
+            }
+          }
+        } catch {
+          // Non-fatal — fallback to local state, GACC page will retry via useEffect
+        }
+      }
+
+      setTimeout(() => navigate(authResult.isNewUser ? '/register' : '/education'), 800);
     } catch (err: any) {
       setIsSigning(false);
       const msg = err?.shortMessage || err?.message || 'Error al conectar la wallet.';

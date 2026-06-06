@@ -6,39 +6,57 @@ import { apiGet } from '../lib/api';
 import type { Member } from '../types';
 
 export default function Gacc() {
-  const { state, setGaccName, setGaccCode, restoreNodeAlert } = useAppState();
+  const { state, setGaccName, setGaccCode, setGaccMembers } = useAppState();
 
   // Fetch real GACC data from API on mount (non-blocking)
   useEffect(() => {
     if (!state.authToken) return;
     apiGet<{
-      grupo: { id: number; nombre: string; codigo_invitacion: string } | null;
-      miembros: unknown[];
+      grupo: { id: number; nombre: string; codigo: string } | null;
+      miembro: { id: number } | null;
+      miembros: Array<{
+        id: number;
+        participante_id: number;
+        validado_en: string | null;
+        participante: { nombre: string; score_reputacion: number } | null;
+      }>;
     }>('/api/gacc/mi-grupo', { token: state.authToken })
       .then((data) => {
         if (data?.grupo) {
           setGaccName(data.grupo.nombre);
-          setGaccCode(data.grupo.codigo_invitacion);
+          setGaccCode(data.grupo.codigo);
         }
-        // NOTE: miembros from API has different schema than Member[]
-        // Members are maintained from local state after registration.
-        // Full API-driven member sync is future work.
+        if (data?.miembros) {
+          const selfId = data.miembro?.id ?? 0;
+          const members = data.miembros.map((m) => ({
+            id: String(m.id),
+            participanteId: String(m.participante_id),
+            name: m.participante?.nombre ?? '',
+            role: '',
+            status: m.validado_en ? 'Al día' as const : 'En Alerta' as const,
+            score: m.participante?.score_reputacion ?? 50,
+            validado: !!m.validado_en,
+            self: m.id === selfId,
+          }));
+          setGaccMembers(members);
+        }
       })
       .catch(() => {
         // API not available — use local state as fallback
       });
-  }, [state.authToken, setGaccName, setGaccCode]);
+  }, [state.authToken, setGaccName, setGaccCode, setGaccMembers]);
 
-  const gaccKey = state.municipio;
-  const members = state.gaccMembers;
+  const gaccKey = state.municipio || '';
+  const members = state.gaccMembers || [];
+  const gaccCodeSafe = state.gaccCode || '—';
   const avgScore =
     members.length > 0
       ? Math.round(members.reduce((sum, m) => sum + m.score, 0) / members.length)
       : 0;
 
   const handleCopyCode = () => {
-    navigator.clipboard.writeText(state.gaccCode);
-    showToast('Código Copiado', `Comparte el código ${state.gaccCode} con tus compañeras.`, 'success');
+    navigator.clipboard.writeText(gaccCodeSafe);
+    showToast('Código Copiado', `Comparte el código ${gaccCodeSafe} con tus compañeras.`, 'success');
   };
 
   return (
@@ -66,7 +84,7 @@ export default function Gacc() {
             </span>
           </div>
           <span className="text-lg font-black text-slate-800 tracking-widest select-all">
-            {state.gaccCode}
+            {gaccCodeSafe}
           </span>
         </div>
 
@@ -99,25 +117,16 @@ export default function Gacc() {
         </div>
 
         {/* Community Alert */}
-        {restoreNodeAlert && (
-          <button
-            className="w-full bg-amber-100 border border-amber-300 rounded-2xl p-3 space-y-1"
-            onClick={() => {
-              showToast(
-                'Restore Node',
-                `Correo temporal: ${state.phone}@mangle.com | Contraseña: mangle${state.gaccCode}`,
-                'success',
-              );
-            }}
-          >
-            <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">
-              Nodo Comunidad GACC
-            </span>
-            <p className="text-[11px] text-amber-800 text-left">
-              Se detectó una alerta de nodo comunitario. Haz clic para ver los datos de acceso del
-              Restore Node.
-            </p>
-          </button>
+        {state.nodeAlert && (
+          <div className="bg-rose-50 border border-rose-200 p-2.5 rounded-xl text-[10px] text-rose-800 animate-pulse">
+            <div className="flex gap-1.5 items-start">
+              <i className="fa-solid fa-circle-exclamation text-xs mt-0.5" />
+              <div>
+                <strong className="font-bold block">Garantía Social Comprometida</strong>
+                Tu compañera <span className="font-bold">{state.alertPartnerName}</span> presenta retraso. Tu red tiene 48h para apoyarla antes de suspender el nodo.
+              </div>
+            </div>
+          </div>
         )}
       </div>
 

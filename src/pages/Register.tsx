@@ -81,6 +81,7 @@ export default function Register() {
         email: localEmail.trim(),
         wallet_address: state.walletAddress,
         rol: 'usuario',
+        telefono: localPhone.trim(),
         codigo_referido: state.referidora || undefined,
       }, { token: state.authToken });
 
