@@ -22,11 +22,13 @@ export default function AmountSlider({
   const quota = value / installments;
 
   return (
-    <div className="space-y-3">
-      <span className="text-xs font-bold text-slate-900 block">¿Cuánto crédito necesitas?</span>
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3.5 space-y-3">
+      <span className="text-xs font-bold text-slate-900 block">
+        <i className="fa-solid fa-coins text-[#D99B26] mr-1.5" />¿Cuánto crédito necesitas?
+      </span>
 
       <div className="text-center py-2">
-        <span className="text-3xl font-black text-[#2A5C3C]">{formatCOP(value)} COP</span>
+        <span className="inline-block bg-[#EBF4EE] text-[#2A5C3C] text-2xl font-black px-5 py-2 rounded-xl">{formatCOP(value)} COP</span>
       </div>
 
       <div className="relative pt-2">
@@ -65,21 +67,11 @@ export default function AmountSlider({
         </div>
       </div>
 
-      {/* Terms preview */}
-      <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm">
-        <div className="bg-[#2A5C3C]/10 text-[#2A5C3C] px-4 py-2 text-[10px] font-bold flex items-center gap-1.5 border-b border-[#2A5C3C]/10">
-          <i className="fa-solid fa-shield-check" /> Términos del Crédito
-        </div>
-        <div className="p-4 flex items-start gap-3">
-          <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 mt-0.5">
-            <i className="fa-solid fa-check text-xs" />
-          </div>
-          <p className="text-[11px] text-slate-600 leading-relaxed">
-            Pagas en <span className="font-bold text-slate-800">{installments} cuota{installments !== 1 ? 's' : ''} semanales</span> de{' '}
-            <span className="font-bold text-slate-800">{formatCOP(quota)} COP</span> cada una.
-          </p>
-        </div>
-      </div>
+      {/* Terms — texto sutil */}
+      <p className="text-[10px] text-slate-400 text-center leading-relaxed">
+        Pagas en <span className="font-medium text-slate-500">{installments} cuota{installments !== 1 ? 's' : ''} semanales</span> de{' '}
+        <span className="font-medium text-slate-500">{formatCOP(quota)} COP</span> cada una.
+      </p>
     </div>
   );
 }

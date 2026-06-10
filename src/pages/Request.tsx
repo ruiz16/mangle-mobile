@@ -62,12 +62,12 @@ export default function Request() {
 
   return (
     <div className="flex-1 flex flex-col justify-between p-5">
-      <PageHeader
-        title="Solicitar tu Crédito"
-        subtitle="Solicita tu crédito y recibe tu COPm en tu wallet."
-      />
+      <div className="space-y-4">
+        <PageHeader
+          title="Solicitar tu Crédito"
+          subtitle="Solicita tu crédito y recibe tu COPm en tu wallet."
+        />
 
-      <div className="space-y-4 mt-3">
         {/* Slider + cuotas */}
         <AmountSlider
           value={state.selectedAmount}
