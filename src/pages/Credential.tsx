@@ -1,11 +1,9 @@
-import { useLocation } from 'wouter';
 import { useAppState } from '../context/AppState';
 import PageHeader from '../components/PageHeader';
 import ScoreRing from '../components/ScoreRing';
 
 export default function Credential() {
   const { state } = useAppState();
-  const [, navigate] = useLocation();
 
   return (
     <div className="flex-1 flex flex-col justify-between p-5">

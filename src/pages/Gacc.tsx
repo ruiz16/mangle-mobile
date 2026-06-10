@@ -4,16 +4,15 @@ import MemberCard from '../components/MemberCard';
 import PageHeader from '../components/PageHeader';
 import { showToast } from '../components/Toast';
 import { apiGet } from '../lib/api';
-import type { Member } from '../types';
 
 export default function Gacc() {
-  const { state, setGaccName, setGaccCode, setGaccMembers } = useAppState();
+  const { state, setMunicipio, setGaccName, setGaccCode, setGaccMembers } = useAppState();
 
   // Fetch real GACC data from API on mount (non-blocking)
   useEffect(() => {
     if (!state.authToken) return;
     apiGet<{
-      grupo: { id: number; nombre: string; codigo: string } | null;
+      grupo: { id: number; nombre: string; codigo: string; municipio: string } | null;
       miembro: { id: number } | null;
       miembros: Array<{
         id: number;
@@ -26,6 +25,7 @@ export default function Gacc() {
         if (data?.grupo) {
           setGaccName(data.grupo.nombre);
           setGaccCode(data.grupo.codigo);
+          if (data.grupo.municipio) setMunicipio(data.grupo.municipio as 'guapi' | 'timbiqui');
         }
         if (data?.miembros) {
           const selfId = data.miembro?.id ?? 0;
@@ -45,7 +45,7 @@ export default function Gacc() {
       .catch(() => {
         // API not available — use local state as fallback
       });
-  }, [state.authToken, setGaccName, setGaccCode, setGaccMembers]);
+  }, [state.authToken, setMunicipio, setGaccName, setGaccCode, setGaccMembers]);
 
   const gaccKey = state.municipio || '';
   const members = state.gaccMembers || [];

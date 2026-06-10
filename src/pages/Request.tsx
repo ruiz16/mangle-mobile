@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { useAppState } from '../context/AppState';
 import AmountSlider from '../components/AmountSlider';
@@ -6,11 +6,11 @@ import PageHeader from '../components/PageHeader';
 import { LOAN_CATEGORIES } from '../types';
 import type { LoanCategory } from '../types';
 import { showToast } from '../components/Toast';
-import { copmToCusd, formatCusd, getExchangeRate } from '../lib/currency';
+import { copmToCusd, formatCusd } from '../lib/currency';
 import { apiPost } from '../lib/api';
 
 export default function Request() {
-  const { state, setSelectedAmount, setCategory, submitLoan, approveLoan } = useAppState();
+  const { state, setSelectedAmount, setCategory, setTotalInstallments, submitLoan, approveLoan } = useAppState();
   const [, navigate] = useLocation();
   const [submitting, setSubmitting] = useState(false);
 
@@ -22,6 +22,14 @@ export default function Request() {
   const handleCategoryClick = (cat: LoanCategory) => {
     setCategory(cat);
   };
+
+  // Redirect if education not complete
+  useEffect(() => {
+    if (state.eduProgress < 100) {
+      showToast('Educación Incompleta', 'Completa el módulo educativo primero.');
+      navigate('/education');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -60,8 +68,13 @@ export default function Request() {
       />
 
       <div className="space-y-4 mt-3">
-        {/* Slider */}
-        <AmountSlider value={state.selectedAmount} onChange={setSelectedAmount} />
+        {/* Slider + cuotas */}
+        <AmountSlider
+          value={state.selectedAmount}
+          onChange={setSelectedAmount}
+          installments={state.totalInstallments}
+          onInstallmentsChange={setTotalInstallments}
+        />
 
         {/* Dual-currency display */}
         <div className="flex justify-between items-center bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">

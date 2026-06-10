@@ -2,7 +2,7 @@
 // Mangle — Mock Data
 // =============================================================================
 
-import type { Member, EduStep } from '../types';
+import type { Member } from '../types';
 
 // ---------------------------------------------------------------------------
 // Referidoras by GACC
@@ -53,28 +53,5 @@ export function getDefaultGaccMembers(municipio: string, selfName: string, selfS
 }
 
 // ---------------------------------------------------------------------------
-// Education chat conversation
+// (Education conversation moved to DB — modulos_educativos table)
 // ---------------------------------------------------------------------------
-
-export const EDU_CONVERSATION: EduStep[] = [
-  {
-    sender: 'system',
-    msg: 'Has iniciado tu proceso formativo. ¡Bienvenida a tu camino de autonomía!',
-    time: '10:09 AM',
-  },
-  {
-    sender: 'whatsapp_fld',
-    msg: '🍃 **Lección 1:** El GACC es un fondo común. Si una persona del grupo presenta dificultad, las demás brindamos apoyo. No hay cobradores externos, nos respaldamos entre nosotras.',
-    time: '10:10 AM',
-  },
-  {
-    sender: 'whatsapp_fld',
-    msg: '💡 **Lección 2:** El pago oportuno mejora tu *Score de Confianza* (Credencial NFT), permitiendo que todo tu grupo acceda a montos más altos en el siguiente ciclo.',
-    time: '10:11 AM',
-  },
-  {
-    sender: 'whatsapp_fld',
-    msg: '¡Felicidades! Has completado el módulo. Ahora estás lista para ingresar el monto del microcrédito que necesitas para tu negocio.',
-    time: '10:12 AM',
-  },
-];

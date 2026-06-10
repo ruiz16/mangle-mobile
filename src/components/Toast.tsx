@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-type ToastType = 'success' | 'warning';
+type ToastType = 'success' | 'warning' | 'error' | 'info';
 
 interface ToastData {
   title: string;
@@ -51,9 +51,14 @@ export default function Toast() {
 
   // Always render the toast container — never return null.
   // When data is null or hidden, it stays invisible via opacity/translate.
-  const isWarning = data?.type === 'warning';
-  const bg = isWarning ? 'bg-amber-500' : 'bg-emerald-500';
-  const icon = isWarning ? 'triangle-exclamation' : 'check';
+  const type = data?.type ?? 'success';
+  const typeStyles: Record<ToastType, { bg: string; icon: string }> = {
+    success: { bg: 'bg-emerald-500', icon: 'check' },
+    warning: { bg: 'bg-amber-500', icon: 'triangle-exclamation' },
+    error: { bg: 'bg-rose-500', icon: 'circle-xmark' },
+    info: { bg: 'bg-sky-500', icon: 'circle-info' },
+  };
+  const { bg, icon } = typeStyles[type];
   const show = visible && data !== null;
 
   return (

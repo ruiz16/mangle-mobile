@@ -50,3 +50,12 @@ export function formatCopmBalance(balance: bigint): string {
 export function formatCOP(value: number): string {
   return '$' + value.toLocaleString('es-CO', { minimumFractionDigits: 0 });
 }
+
+/**
+ * Format a COPm amount string (from API) for display.
+ * Example: formatCopm("1000000") → "$1.000.000 COPm"
+ */
+export function formatCopm(value: string | number): string {
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  return '$' + num.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' COPm';
+}

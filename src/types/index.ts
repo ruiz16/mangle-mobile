@@ -14,13 +14,6 @@ export interface Member {
   self: boolean;
 }
 
-/** Chat step in the education module */
-export interface EduStep {
-  sender: 'system' | 'whatsapp_fld';
-  msg: string;
-  time: string;
-}
-
 /** Category for loan purpose */
 export type LoanCategory = 'insumos' | 'herramientas' | 'mercancia';
 
@@ -39,11 +32,109 @@ export type Municipio = 'guapi' | 'timbiqui';
 /** Credit state — aligned with web app (pendiente → desembolsado → pagado) */
 export type CreditEstado = 'ninguno' | 'pendiente' | 'desembolsado' | 'pagado';
 
-/** Currency type — COPm (local currency) or cUSD (Celo Dollar) */
-export type Moneda = 'COPm' | 'cUSD';
+/** Currency type — COPm */
+export type Moneda = 'COPm';
 
 /** Navigation tab */
 export type NavTab = 'education' | 'request' | 'gacc' | 'repayment' | 'credential';
+
+/**
+ * Auth flow step — used by useAuth() hook to drive the Connect page UI
+ * and prevent duplicate SIWE attempts.
+ *
+ * ┌─ idle ──→ checking_session ──→ authenticated (if session valid)
+ *                                ──→ connecting_wallet → fetch_nonce → signing → exchanging → authenticated
+ *                                                                                               ──→ error
+ */
+export type AuthStep =
+  | 'idle'
+  | 'checking_session'
+  | 'connecting_wallet'
+  | 'fetching_nonce'
+  | 'signing'
+  | 'exchanging'
+  | 'authenticated'
+  | 'error';
+
+// =============================================================================
+// API Response Types (from mangle-app backend)
+// =============================================================================
+
+/** Enriched cuota from GET /api/mis-cuotas — aligned with mangle-app's EnrichedCuota */
+export interface ApiCuota {
+  id: string;
+  credito_id: string;
+  credito_monto: string;
+  credito_estado: string;
+  credito_descripcion: string | null;
+  numero_cuota: number;
+  total_cuotas: number;
+  monto_capital: string;
+  monto_interes: string;
+  monto_cuota: string;    // COPm (decimal string)
+  saldo_restante: string;  // COPm
+  fecha_vencimiento: string;
+  estado: 'pendiente' | 'pagada' | 'vencida';
+  tx_hash_pago: string | null;
+  fecha_pago: string | null;
+}
+
+/** Response from GET /api/mis-cuotas */
+export interface MisCuotasResponse {
+  cuotas: ApiCuota[];
+}
+
+/** Pago config from GET /api/mobile/pago-config */
+export interface PagoConfig {
+  copmAddress: `0x${string}`;
+  platformWallet: `0x${string}`;
+}
+
+/** Body for POST /api/pago */
+export interface PagoRequestBody {
+  cuota_id: string;
+  tx_hash: `0x${string}`;
+}
+
+/** Successful response from POST /api/pago */
+export interface PagoResponse {
+  status: 'pagado';
+  cuota_id: string;
+  credito_id: string;
+}
+
+// =============================================================================
+// Education API Types
+// =============================================================================
+
+/** Módulo educativo from GET /api/educacion/modulos */
+export interface ApiModuloEducativo {
+  id: string;
+  orden: number;
+  sender: 'system' | 'whatsapp_fld';
+  mensaje: string;
+  created_at: string;
+}
+
+/** Response from GET /api/educacion/modulos */
+export interface ApiModulosResponse {
+  modulos: ApiModuloEducativo[];
+}
+
+/** Progreso educativo from API */
+export interface ApiEduProgreso {
+  modulo_actual: number;
+  completado: boolean;
+  modulos_totales: number;
+}
+
+/** Response from GET /api/educacion/progreso */
+export interface ApiEduProgresoResponse {
+  progreso: ApiEduProgreso;
+}
+
+/** Response from POST /api/educacion/progreso */
+export type ApiEduProgresoPostResponse = ApiEduProgresoResponse;
 
 // =============================================================================
 // App State
@@ -60,9 +151,9 @@ export interface AppState {
   fullName: string;
   email: string;
   role: string;
+  oficio: string;
   phone: string;
   municipio: Municipio;
-  referidora: string;
 
   // GACC
   gaccMode: GaccMode;
@@ -79,12 +170,11 @@ export interface AppState {
   category: LoanCategory;
   creditEstado: CreditEstado;
   moneda: Moneda;
-  montoCusd: number;
-  tasaCambio: number;
   installmentsPaid: number;
   totalInstallments: number;
 
   // SIWE Auth
+  authStep: AuthStep;
   siweMessage: string | null;
   siweSignature: `0x${string}` | null;
   authToken: string | null;
@@ -111,9 +201,9 @@ export function createDefaultState(): AppState {
     fullName: '',
     email: '',
     role: '',
+    oficio: '',
     phone: '',
     municipio: 'guapi',
-    referidora: '',
     gaccMode: 'join',
     gaccCode: '',
     gaccName: '',
@@ -124,10 +214,9 @@ export function createDefaultState(): AppState {
     category: 'insumos',
     creditEstado: 'ninguno',
     moneda: 'COPm',
-    montoCusd: 0,
-    tasaCambio: 3633.45,
     installmentsPaid: 0,
     totalInstallments: 4,
+    authStep: 'idle',
     siweMessage: null,
     siweSignature: null,
     authToken: null,

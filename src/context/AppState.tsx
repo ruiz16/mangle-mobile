@@ -14,16 +14,13 @@ import {
 } from 'react';
 import type {
   AppState,
+  AuthStep,
   LoanCategory,
-  CreditEstado,
-  Moneda,
   GaccMode,
   Municipio,
   Member,
 } from '../types';
 import { createDefaultState } from '../types';
-import { getDefaultGaccMembers } from '../lib/data';
-import { getExchangeRate, copmToCusd } from '../lib/currency';
 
 const STORAGE_KEY = 'mangle:state';
 
@@ -65,22 +62,27 @@ interface AppStateContextValue {
   // Actions
   connectWallet: (address: string, copmBalance?: string) => void;
   setCopmBalance: (value: string) => void;
+  setAuthStep: (step: AuthStep) => void;
   setSiweAuth: (message: string, signature: `0x${string}`) => void;
-  setAuthTokens: (token: string, refreshToken: string) => void;
+  setAuthTokens: (token: string, refreshToken: string, isNewUser?: boolean) => void;
+  refreshTokens: (token: string, refreshToken: string) => void;
+  clearAuth: () => void;
   setFullName: (name: string) => void;
   setEmail: (email: string) => void;
   setRole: (role: string) => void;
+  setOficio: (oficio: string) => void;
   setPhone: (phone: string) => void;
   setMunicipio: (m: Municipio) => void;
-  setReferidora: (r: string) => void;
+
   setGaccMode: (m: GaccMode) => void;
   setGaccCode: (code: string) => void;
   setGaccName: (name: string) => void;
   setGaccMembers: (members: Member[]) => void;
   registerUser: () => void;
-  advanceEdu: () => boolean; // returns true if completed
+  setEduProgress: (step: number, progress: number) => void;
   setSelectedAmount: (amount: number) => void;
   setCategory: (cat: LoanCategory) => void;
+  setTotalInstallments: (n: number) => void;
   submitLoan: () => void;
   approveLoan: () => void;
   payInstallment: () => void;
@@ -121,18 +123,41 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, copmBalance: value }));
   }, []);
 
+  const setAuthStep = useCallback((step: AuthStep) => {
+    setState((prev) => ({ ...prev, authStep: step }));
+  }, []);
+
   const setSiweAuth = useCallback((message: string, signature: `0x${string}`) => {
     setState((prev) => ({ ...prev, siweMessage: message, siweSignature: signature }));
   }, []);
 
-  const setAuthTokens = useCallback((token: string, refreshToken: string, isNewUser?: boolean) => {
-    setState((prev) => {
-      const updates: Record<string, unknown> = { authToken: token, refreshToken };
-      if (isNewUser === false) {
-        updates.registered = true;
-      }
-      return { ...prev, ...updates };
-    });
+  const setAuthTokens = useCallback((token: string, refreshToken: string, isNewUser?: boolean, profileCompleted?: boolean) => {
+    setState((prev) => ({
+      ...prev,
+      authToken: token,
+      refreshToken,
+      authStep: 'authenticated',
+      registered: profileCompleted ?? false,
+    }));
+  }, []);
+
+  const clearAuth = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      authStep: 'idle',
+      siweMessage: null,
+      siweSignature: null,
+      authToken: null,
+      refreshToken: null,
+    }));
+  }, []);
+
+  const refreshTokens = useCallback((token: string, refreshToken: string) => {
+    setState((prev) => ({
+      ...prev,
+      authToken: token,
+      refreshToken,
+    }));
   }, []);
 
   // ---------- Registration fields ----------
@@ -149,11 +174,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const setPhone = useCallback((phone: string) => {
     setState((prev) => ({ ...prev, phone }));
   }, []);
+  const setOficio = useCallback((oficio: string) => {
+    setState((prev) => ({ ...prev, oficio }));
+  }, []);
   const setMunicipio = useCallback((m: Municipio) => {
     setState((prev) => ({ ...prev, municipio: m }));
-  }, []);
-  const setReferidora = useCallback((r: string) => {
-    setState((prev) => ({ ...prev, referidora: r }));
   }, []);
   const setGaccMode = useCallback((m: GaccMode) => {
     setState((prev) => ({ ...prev, gaccMode: m }));
@@ -171,62 +196,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   // ---------- Register User ----------
 
   const registerUser = useCallback(() => {
-    setState((prev) => {
-      let gaccCode = prev.gaccCode;
-      let         gaccName = prev.gaccName || 'Mi GACC';
-      let gaccMembers: Member[] = [];
-
-      if (prev.gaccMode === 'join') {
-        const code = (gaccCode || '').toUpperCase();
-        if (code.includes('TIMBIQUI')) {
-          gaccMembers = getDefaultGaccMembers('timbiqui', prev.fullName, prev.reputation);
-          gaccName = 'Saberes del Río';
-          gaccCode = 'MANGLE-TIMBIQUI';
-        } else {
-          gaccMembers = getDefaultGaccMembers('guapi', prev.fullName, prev.reputation);
-          gaccName = 'Tejiendo Sueños';
-          gaccCode = 'MANGLE-GUAPI';
-        }
-      } else {
-        // Create flow — generates MANGLE-XXXX code
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        let code = '';
-        for (let i = 0; i < 4; i++) {
-          code += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        const selfId = `mock-miembro-${Date.now()}`;
-        gaccCode = `MANGLE-${code}`;
-        gaccName = prev.gaccName || 'Mi GACC';
-        gaccMembers = [
-          { id: selfId, participanteId: `mock-part-${selfId}`, name: prev.fullName, role: prev.role || 'Emprendedora', status: 'Al día', score: prev.reputation, validado: true, self: true },
-        ];
-      }
-
-      return {
-        ...prev,
-        registered: true,
-        gaccCode,
-        gaccName,
-        gaccMembers,
-      };
-    });
+    setState((prev) => ({ ...prev, registered: true }));
   }, []);
 
   // ---------- Education ----------
 
-  const advanceEdu = useCallback((): boolean => {
-    let completed = false;
-    setState((prev) => {
-      const nextStep = prev.currentEduStep + 1;
-      const totalSteps = 4; // from EDU_CONVERSATION
-      if (nextStep > totalSteps) {
-        completed = true;
-        return { ...prev, eduProgress: 100 };
-      }
-      const progress = Math.round((nextStep / totalSteps) * 100);
-      return { ...prev, currentEduStep: nextStep, eduProgress: progress };
-    });
-    return completed;
+  const setEduProgress = useCallback((step: number, progress: number) => {
+    setState((prev) => ({
+      ...prev,
+      currentEduStep: step,
+      eduProgress: progress,
+    }));
   }, []);
 
   // ---------- Credit ----------
@@ -238,18 +218,16 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, category: cat }));
   }, []);
 
+  const setTotalInstallments = useCallback((n: number) => {
+    setState((prev) => ({ ...prev, totalInstallments: n }));
+  }, []);
+
   const submitLoan = useCallback(() => {
-    setState((prev) => {
-      const tasaCambio = getExchangeRate();
-      const montoCusd = copmToCusd(prev.selectedAmount, tasaCambio);
-      return {
-        ...prev,
-        creditEstado: 'pendiente',
-        moneda: 'COPm',
-        montoCusd,
-        tasaCambio,
-      };
-    });
+    setState((prev) => ({
+      ...prev,
+      creditEstado: 'pendiente',
+      moneda: 'COPm',
+    }));
   }, []);
 
   const approveLoan = useCallback(() => {
@@ -340,22 +318,26 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         state,
         connectWallet,
         setCopmBalance,
+        setAuthStep,
         setSiweAuth,
         setAuthTokens,
+        clearAuth,
+        refreshTokens,
         setFullName,
         setEmail,
         setRole,
+        setOficio,
         setPhone,
         setMunicipio,
-        setReferidora,
         setGaccMode,
         setGaccCode,
         setGaccName,
         setGaccMembers,
         registerUser,
-        advanceEdu,
+        setEduProgress,
         setSelectedAmount,
         setCategory,
+        setTotalInstallments,
         submitLoan,
         approveLoan,
         payInstallment,

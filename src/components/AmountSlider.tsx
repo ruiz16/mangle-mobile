@@ -6,6 +6,8 @@ interface AmountSliderProps {
   min?: number;
   max?: number;
   step?: number;
+  installments: number;
+  onInstallmentsChange: (n: number) => void;
 }
 
 export default function AmountSlider({
@@ -14,8 +16,10 @@ export default function AmountSlider({
   min = 20000,
   max = 200000,
   step = 10000,
+  installments,
+  onInstallmentsChange,
 }: AmountSliderProps) {
-  const quota = value / 4;
+  const quota = value / installments;
 
   return (
     <div className="space-y-3">
@@ -41,17 +45,38 @@ export default function AmountSlider({
         </div>
       </div>
 
+      {/* Cuotas selector */}
+      <div className="flex items-center justify-between bg-white px-4 py-2.5 rounded-xl border border-slate-100 shadow-sm">
+        <span className="text-[10px] font-bold text-slate-700">N° de Cuotas</span>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => onInstallmentsChange(Math.max(1, installments - 1))}
+            disabled={installments <= 1}
+            className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-bold disabled:opacity-30"
+          >−</button>
+          <span className="text-sm font-black text-[#2A5C3C] w-6 text-center">{installments}</span>
+          <button
+            type="button"
+            onClick={() => onInstallmentsChange(Math.min(24, installments + 1))}
+            disabled={installments >= 24}
+            className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-bold disabled:opacity-30"
+          >+</button>
+        </div>
+      </div>
+
+      {/* Terms preview */}
       <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm">
         <div className="bg-[#2A5C3C]/10 text-[#2A5C3C] px-4 py-2 text-[10px] font-bold flex items-center gap-1.5 border-b border-[#2A5C3C]/10">
-          <i className="fa-solid fa-shield-check" /> Términos y Condiciones
+          <i className="fa-solid fa-shield-check" /> Términos del Crédito
         </div>
         <div className="p-4 flex items-start gap-3">
           <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 mt-0.5">
             <i className="fa-solid fa-check text-xs" />
           </div>
           <p className="text-[11px] text-slate-600 leading-relaxed">
-            Pagas en <span className="font-bold text-slate-800">4 cuotas semanales</span> de{' '}
-            <span className="font-bold text-slate-800">{formatCOP(quota)} COP</span> (incluye tarifa de servicio Web3). Sin intereses ocultos.
+            Pagas en <span className="font-bold text-slate-800">{installments} cuota{installments !== 1 ? 's' : ''} semanales</span> de{' '}
+            <span className="font-bold text-slate-800">{formatCOP(quota)} COP</span> cada una.
           </p>
         </div>
       </div>

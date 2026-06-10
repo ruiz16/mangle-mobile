@@ -63,7 +63,7 @@ function MobileShell({ children, showNav }: { children: React.ReactNode; showNav
 
       {/* Bottom Nav */}
       {showNav && (
-        <BottomNav activeTab={currentTab} onNavigate={handleNav} alertDot={state.nodeAlert} />
+        <BottomNav activeTab={currentTab} onNavigate={handleNav} alertDot={state.nodeAlert} eduComplete={state.eduProgress >= 100} />
       )}
     </div>
   );
