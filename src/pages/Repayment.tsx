@@ -10,6 +10,7 @@ import { apiGet, apiPost, ApiRequestError } from '../lib/api';
 import { formatCopm } from '../lib/currency';
 import Lottie from 'lottie-react';
 import splashAnimation from '../assets/lottie/26187f5e-1174-11ee-993b-d7ded5bd38d2.json';
+import walletAnimation from '../assets/lottie/16a8e6c0-117a-11ee-a9de-ab7b4c8f4c79.json';
 import type { ApiCuota, PagoConfig } from '../types';
 import type { Address } from 'viem';
 
@@ -332,8 +333,11 @@ export default function Repayment() {
           }
         />
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center max-w-xs">
-            <i className="fa-solid fa-circle-check text-emerald-300 text-3xl mb-3" />
+          <div className="text-center max-w-xs flex flex-col items-center gap-3">
+            <div className="w-40 h-40">
+              {/* @ts-ignore */}
+              <Lottie animationData={walletAnimation} loop autoplay style={{ width: '100%', height: '100%' }} />
+            </div>
             <p className="text-xs text-slate-500 font-medium">No tenés cuotas pendientes.</p>
             <p className="text-[10px] text-slate-400 mt-1">Todas tus cuotas están al día.</p>
           </div>
