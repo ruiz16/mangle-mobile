@@ -5,12 +5,26 @@ import { useAppState } from '../context/AppState';
 import { useMiniPay } from '../hooks/useMiniPay';
 import PageHeader from '../components/PageHeader';
 import { showToast } from '../components/Toast';
-import { getApiBase, getActiveChain, getActiveRpc } from '../lib/network';
+import { getActiveChain, getActiveRpc } from '../lib/network';
+import { apiGet, apiPost, ApiRequestError } from '../lib/api';
 import { formatCopm } from '../lib/currency';
 import Lottie from 'lottie-react';
 import splashAnimation from '../assets/lottie/26187f5e-1174-11ee-993b-d7ded5bd38d2.json';
 import type { ApiCuota, PagoConfig } from '../types';
 import type { Address } from 'viem';
+
+const PAGO_ERROR_MESSAGES: Record<string, string> = {
+  TX_NO_ENCONTRADA: 'La transacción no se encontró en la blockchain',
+  TX_REVERTIDA: 'La transacción fue revertida en la blockchain',
+  TX_DESTINO_INVALIDO: 'Destino de transacción inválido',
+  TX_BENEFICIARIO_INVALIDO: 'El beneficiario no coincide con la billetera de la fundación',
+  TX_MONTO_INSUFICIENTE: 'El monto enviado es menor al valor de la cuota',
+  YA_PAGADA: 'Esta cuota ya fue pagada',
+  YA_PAGADO: 'El crédito ya fue pagado completamente',
+  TX_HASH_DUPLICADO: 'Este hash ya fue registrado para otra cuota',
+  NO_AUTENTICADO: 'Sesión expirada. Iniciá sesión de nuevo',
+  ESTADO_INCORRECTO: 'La cuota no está en un estado pagable',
+};
 
 // =============================================================================
 // Repayment — COPm Payment Page
@@ -67,7 +81,7 @@ function groupByCredit(cuotas: ApiCuota[]): CuotaGrouped[] {
 // ---- component ----
 
 export default function Repayment() {
-  const { state } = useAppState();
+  const { state, refreshTokens } = useAppState();
   const [, navigate] = useLocation();
   const wallet = useMiniPay();
 
@@ -86,7 +100,6 @@ export default function Repayment() {
     }
   });
 
-  const API = getApiBase();
   const authToken = state.authToken;
 
   // ------------------------------------------------------------------
@@ -102,23 +115,18 @@ export default function Repayment() {
 
     async function load() {
       try {
+        const tokenOpts = {
+          token: authToken,
+          refreshToken: state.refreshToken,
+          onTokenRefresh: refreshTokens,
+        };
+
         // Fetch cuotas, pago config, and credit list in parallel
-        const [cuotasRes, configRes, creditosRes] = await Promise.all([
-          fetch(`${API}/api/mis-cuotas`, {
-            headers: { Authorization: `Bearer ${authToken}` },
-          }),
-          fetch(`${API}/api/mobile/pago-config`),
-          fetch(`${API}/api/creditos`, {
-            headers: { Authorization: `Bearer ${authToken}` },
-          }),
+        const [cuotasData, configData, creditosData] = await Promise.all([
+          apiGet<{ cuotas: ApiCuota[] }>('/api/mis-cuotas', tokenOpts),
+          apiGet<PagoConfig>('/api/mobile/pago-config'),
+          apiGet<{ creditos: { id: string; estado: string }[] }>('/api/creditos', tokenOpts),
         ]);
-
-        if (!cuotasRes.ok) {
-          throw new Error('Error al cargar cuotas');
-        }
-
-        const cuotasData: { cuotas: ApiCuota[] } = await cuotasRes.json();
-        const configData: PagoConfig = await configRes.json();
 
         if (!cancelled) {
           setCuotas(cuotasData.cuotas);
@@ -126,8 +134,7 @@ export default function Repayment() {
         }
 
         // Check for pending credits (no cuotas yet — waiting admin approval)
-        if (cuotasData.cuotas.length === 0 && creditosRes.ok) {
-          const creditosData: { creditos: { id: string; estado: string }[] } = await creditosRes.json();
+        if (cuotasData.cuotas.length === 0) {
           const pending = creditosData.creditos?.find((c) => c.estado === 'pendiente');
           if (!cancelled && pending) {
             setPendingCredit(pending.id);
@@ -144,7 +151,7 @@ export default function Repayment() {
 
     load();
     return () => { cancelled = true; };
-  }, [authToken, API]);
+  }, [authToken, state.refreshToken, refreshTokens]);
 
   // ------------------------------------------------------------------
   // Pay a cuota
@@ -190,38 +197,15 @@ export default function Repayment() {
       }
 
       // 3. Register payment in backend
-      const res = await fetch(`${API}/api/pago`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
+      await apiPost<{ status: string; cuota_id: string; credito_id: string }>(
+        '/api/pago',
+        { cuota_id: cuota.id, tx_hash: txHash },
+        {
+          token: authToken,
+          refreshToken: state.refreshToken,
+          onTokenRefresh: refreshTokens,
         },
-        body: JSON.stringify({
-          cuota_id: cuota.id,
-          tx_hash: txHash,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        const errorCode = data.error as string;
-        const detail = data.detail as string;
-
-        const errorMessages: Record<string, string> = {
-          TX_NO_ENCONTRADA: 'La transacción no se encontró en la blockchain',
-          TX_REVERTIDA: 'La transacción fue revertida',
-          TX_DESTINO_INVALIDO: 'Destino de transacción inválido',
-          TX_BENEFICIARIO_INVALIDO: 'El beneficiario no coincide con la plataforma',
-          TX_MONTO_INSUFICIENTE: 'El monto enviado es menor al valor de la cuota',
-          YA_PAGADA: 'Esta cuota ya fue pagada',
-          YA_PAGADO: 'El crédito ya fue pagado completamente',
-          TX_HASH_DUPLICADO: 'Este hash ya fue registrado para otra cuota',
-          NO_AUTENTICADO: 'Sesión expirada. Iniciá sesión de nuevo',
-        };
-
-        throw new Error(errorMessages[errorCode] ?? detail ?? 'Error al registrar pago');
-      }
+      );
 
       // 4. Remove paid cuota from local list
       setCuotas((prev) => prev.filter((c) => c.id !== cuota.id));
@@ -232,12 +216,14 @@ export default function Repayment() {
         'success',
       );
     } catch (err: any) {
-      const msg = err?.shortMessage || err?.message || 'Error al procesar el pago';
+      const msg = err instanceof ApiRequestError
+        ? (PAGO_ERROR_MESSAGES[err.code] ?? err.message)
+        : (err?.shortMessage || err?.message || 'Error al procesar el pago');
       showToast('Error', msg, 'error');
     } finally {
       setPayingCuotaId(null);
     }
-  }, [payingCuotaId, pagoConfig, state.walletAddress, state.authToken, API, wallet, authToken]);
+  }, [payingCuotaId, pagoConfig, state.walletAddress, state.authToken, state.refreshToken, refreshTokens, wallet, authToken]);
 
   // ------------------------------------------------------------------
   // Derived
