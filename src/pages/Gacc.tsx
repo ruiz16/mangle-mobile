@@ -1,12 +1,30 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppState } from '../context/AppState';
 import MemberCard from '../components/MemberCard';
 import PageHeader from '../components/PageHeader';
 import { showToast } from '../components/Toast';
-import { apiGet } from '../lib/api';
+import { apiGet, apiPost } from '../lib/api';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface PendingAvalCredit {
+  id: string;
+  prestatario_id: string;
+  prestatario_nombre: string;
+  monto: string;
+  descripcion: string | null;
+  fecha_solicitud: string;
+  avales_minimos: number;
+  avales_actuales: number;
+  ya_avale: boolean;
+}
 
 export default function Gacc() {
   const { state, setMunicipio, setGaccName, setGaccCode, setGaccMembers } = useAppState();
+  const [pendingCredits, setPendingCredits] = useState<PendingAvalCredit[]>([]);
+  const [loadingAval, setLoadingAval] = useState<string | null>(null); // credito_id being avalado
 
   // Fetch real GACC data from API on mount (non-blocking)
   useEffect(() => {
@@ -47,6 +65,20 @@ export default function Gacc() {
       });
   }, [state.authToken, setMunicipio, setGaccName, setGaccCode, setGaccMembers]);
 
+  // Fetch pending avales
+  useEffect(() => {
+    if (!state.authToken) return;
+    apiGet<{ creditos: PendingAvalCredit[] }>('/api/gacc/pendientes-de-aval', {
+      token: state.authToken,
+    })
+      .then((data) => {
+        setPendingCredits(data?.creditos ?? []);
+      })
+      .catch(() => {
+        setPendingCredits([]);
+      });
+  }, [state.authToken]);
+
   const gaccKey = state.municipio || '';
   const members = state.gaccMembers || [];
   const gaccCodeSafe = state.gaccCode || '—';
@@ -59,6 +91,33 @@ export default function Gacc() {
     navigator.clipboard.writeText(gaccCodeSafe);
     showToast('Código Copiado', `Comparte el código ${gaccCodeSafe} con tus compañeras.`, 'success');
   };
+
+  const handleAvalar = async (creditoId: string) => {
+    setLoadingAval(creditoId);
+    try {
+      await apiPost('/api/avales', { credito_id: creditoId }, { token: state.authToken });
+      showToast('Aval Registrado', 'Has avalado este crédito con éxito.', 'success');
+      // Remove from pending list and refresh
+      setPendingCredits((prev) => prev.filter((c) => c.id !== creditoId));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al avalar el crédito';
+      showToast('Error', msg, 'error');
+    } finally {
+      setLoadingAval(null);
+      // Refresh pending list
+      try {
+        const data = await apiGet<{ creditos: PendingAvalCredit[] }>(
+          '/api/gacc/pendientes-de-aval',
+          { token: state.authToken },
+        );
+        setPendingCredits(data?.creditos ?? []);
+      } catch {
+        // silent
+      }
+    }
+  };
+
+  const needsAval = pendingCredits.filter((c) => !c.ya_avale);
 
   return (
     <div className="flex-1 flex flex-col justify-between p-5">
@@ -121,6 +180,47 @@ export default function Gacc() {
             </span>
           </div>
         </div>
+
+        {/* Pending Avales Section */}
+        {needsAval.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              Créditos pendientes de avalar
+            </h4>
+            {needsAval.map((credito) => (
+              <div
+                key={credito.id}
+                className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm space-y-2"
+              >
+                <div className="flex justify-between items-start">
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-slate-800">
+                      {credito.prestatario_nombre}
+                    </p>
+                    <p className="text-[11px] text-slate-500 font-medium">
+                      ${Number(credito.monto).toLocaleString('es-CO')} COPm
+                    </p>
+                    {credito.descripcion && (
+                      <p className="text-[10px] text-slate-400 italic">
+                        {credito.descripcion}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-[10px] font-bold text-[#2A5C3C] bg-[#EBF4EE] px-2 py-0.5 rounded-full">
+                    {credito.avales_actuales}/{credito.avales_minimos} avales
+                  </span>
+                </div>
+                <button
+                  onClick={() => handleAvalar(credito.id)}
+                  disabled={loadingAval === credito.id}
+                  className="w-full py-2 rounded-xl text-xs font-extrabold text-white bg-[#2A5C3C] disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all"
+                >
+                  {loadingAval === credito.id ? 'Avalando…' : 'Avalar crédito'}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Members sections */}
         <div className="space-y-2">
