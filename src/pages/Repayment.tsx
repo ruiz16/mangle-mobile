@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useLocation } from 'wouter';
 import { createPublicClient, http } from 'viem';
 import { useAppState } from '../context/AppState';
 import { useMiniPay } from '../hooks/useMiniPay';
@@ -6,6 +7,8 @@ import PageHeader from '../components/PageHeader';
 import { showToast } from '../components/Toast';
 import { getApiBase, getActiveChain, getActiveRpc } from '../lib/network';
 import { formatCopm } from '../lib/currency';
+import Lottie from 'lottie-react';
+import splashAnimation from '../assets/lottie/26187f5e-1174-11ee-993b-d7ded5bd38d2.json';
 import type { ApiCuota, PagoConfig } from '../types';
 import type { Address } from 'viem';
 
@@ -65,6 +68,7 @@ function groupByCredit(cuotas: ApiCuota[]): CuotaGrouped[] {
 
 export default function Repayment() {
   const { state } = useAppState();
+  const [, navigate] = useLocation();
   const wallet = useMiniPay();
 
   const [cuotas, setCuotas] = useState<ApiCuota[]>([]);
@@ -72,6 +76,15 @@ export default function Repayment() {
   const [pagoConfig, setPagoConfig] = useState<PagoConfig | null>(null);
   const [payingCuotaId, setPayingCuotaId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pendingCredit, setPendingCredit] = useState<string | null>(null);
+  const lottieRef = useRef<null | { setSpeed: (s: number) => void }>(null);
+
+  // Speed 0.5 for the pending-credit Lottie (matches splash feel)
+  useEffect(() => {
+    if (lottieRef.current) {
+      lottieRef.current.setSpeed(0.5);
+    }
+  });
 
   const API = getApiBase();
   const authToken = state.authToken;
@@ -89,12 +102,15 @@ export default function Repayment() {
 
     async function load() {
       try {
-        // Fetch cuotas and pago config in parallel
-        const [cuotasRes, configRes] = await Promise.all([
+        // Fetch cuotas, pago config, and credit list in parallel
+        const [cuotasRes, configRes, creditosRes] = await Promise.all([
           fetch(`${API}/api/mis-cuotas`, {
             headers: { Authorization: `Bearer ${authToken}` },
           }),
           fetch(`${API}/api/mobile/pago-config`),
+          fetch(`${API}/api/creditos`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          }),
         ]);
 
         if (!cuotasRes.ok) {
@@ -107,6 +123,15 @@ export default function Repayment() {
         if (!cancelled) {
           setCuotas(cuotasData.cuotas);
           setPagoConfig(configData);
+        }
+
+        // Check for pending credits (no cuotas yet — waiting admin approval)
+        if (cuotasData.cuotas.length === 0 && creditosRes.ok) {
+          const creditosData: { creditos: { id: string; estado: string }[] } = await creditosRes.json();
+          const pending = creditosData.creditos?.find((c) => c.estado === 'pendiente');
+          if (!cancelled && pending) {
+            setPendingCredit(pending.id);
+          }
         }
       } catch (err: any) {
         if (!cancelled) {
@@ -231,7 +256,7 @@ export default function Repayment() {
       <div className="flex-1 flex items-center justify-center p-5">
         <div className="text-center">
           <i className="fa-solid fa-spinner fa-spin text-emerald-600 text-xl mb-2" />
-          <p className="text-xs text-slate-500">Cargando tus cuotas...</p>
+          <p className="text-xs text-slate-500">¡Cargando tus cuotas, por favor espera!</p>
         </div>
       </div>
     );
@@ -267,6 +292,35 @@ export default function Repayment() {
           <div className="text-center max-w-xs">
             <i className="fa-solid fa-circle-exclamation text-rose-400 text-3xl mb-3" />
             <p className="text-xs text-rose-600">{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ------------------------------------------------------------------
+  // Credit pending evaluation (no cuotas yet — waiting admin approval)
+  // ------------------------------------------------------------------
+  if (!hasCredits && pendingCredit) {
+    return (
+      <div className="flex-1 flex flex-col bg-gradient-to-b from-[#F0F7F3] to-[#E8F0EC]">
+        <div className="px-5 pt-5">
+          <PageHeader title="Repago de Crédito" subtitle="Estado de tu solicitud." />
+        </div>
+        <div className="flex-1 flex items-center justify-center p-6 -mt-10">
+          <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl shadow-green-900/5 p-8 space-y-6">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-44 h-44">
+                {/* @ts-ignore */}
+                <Lottie lottieRef={lottieRef} animationData={splashAnimation} loop autoplay style={{ width: '100%', height: '100%' }} />
+              </div>
+              <div className="text-center">
+                <h2 className="text-xl font-extrabold text-[#1E3E28] leading-tight">Crédito en Evaluación</h2>
+                <p className="text-sm text-slate-500 font-medium mt-2 leading-relaxed">
+                  Tu solicitud está siendo revisada por el equipo MANGLE. Pronto recibirás notificación cuando sea aprobada y desembolsada.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

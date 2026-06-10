@@ -6,18 +6,13 @@ import PageHeader from '../components/PageHeader';
 import { LOAN_CATEGORIES } from '../types';
 import type { LoanCategory } from '../types';
 import { showToast } from '../components/Toast';
-import { copmToCusd, formatCusd } from '../lib/currency';
 import { apiPost } from '../lib/api';
 
 export default function Request() {
-  const { state, setSelectedAmount, setCategory, setTotalInstallments, submitLoan, approveLoan } = useAppState();
+  const { state, setSelectedAmount, setCategory, setTotalInstallments, submitLoan, refreshTokens } = useAppState();
   const [, navigate] = useLocation();
   const [submitting, setSubmitting] = useState(false);
-
-  const cusdEquivalent = useMemo(
-    () => copmToCusd(state.selectedAmount),
-    [state.selectedAmount],
-  );
+  const [descripcion, setDescripcion] = useState('');
 
   const handleCategoryClick = (cat: LoanCategory) => {
     setCategory(cat);
@@ -33,31 +28,29 @@ export default function Request() {
 
   const handleSubmit = async () => {
     setSubmitting(true);
-    submitLoan();
 
-    // Create credit on server (non-blocking)
-    if (state.authToken) {
-      try {
-        await apiPost('/api/creditos', {
-          monto: state.selectedAmount,
-          plazo_dias: state.totalInstallments * 7, // weekly installments
-          numero_cuotas: state.totalInstallments,
-          descripcion: state.category,
-        }, { token: state.authToken });
-      } catch {
-        console.warn('[Request] API fallback to offline');
-      }
-    }
+    try {
+      await apiPost('/api/creditos', {
+        monto: state.selectedAmount,
+        uso: state.category,
+        descripcion: descripcion || undefined,
+        plazo_dias: state.totalInstallments * 7,
+        numero_cuotas: state.totalInstallments,
+      }, {
+        token: state.authToken,
+        refreshToken: state.refreshToken,
+        onTokenRefresh: refreshTokens,
+      });
 
-    showToast('Solicitud Enviada', 'Tu crédito está pendiente de aprobación...', 'success');
-
-    // Simula el desembolso on-chain (en producción lo haría el admin/backend)
-    setTimeout(() => {
-      approveLoan();
-      showToast('¡Crédito Desembolsado!', 'COPm transferido con éxito a tu wallet.', 'success');
-      setSubmitting(false);
+      submitLoan();
+      showToast('Solicitud Enviada', 'Tu crédito está en revisión.', 'success');
       navigate('/repayment');
-    }, 2000);
+    } catch (err: any) {
+      const msg = err?.message ?? err?.detail ?? 'Error al enviar solicitud';
+      showToast('Error', msg, 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -77,7 +70,7 @@ export default function Request() {
         />
 
         {/* Dual-currency display */}
-        <div className="flex justify-between items-center bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
+        {/* <div className="flex justify-between items-center bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
           <span className="text-[10px] font-medium text-slate-500">
             <i className="fa-solid fa-exchange-alt mr-1 text-[9px]" />
             Equivalente blockchain
@@ -85,7 +78,7 @@ export default function Request() {
           <span className="text-xs font-bold text-slate-700">
             ≈ {formatCusd(cusdEquivalent)}
           </span>
-        </div>
+        </div> */}
 
         {/* Category */}
         <div className="space-y-2">
@@ -97,7 +90,7 @@ export default function Request() {
                 <button
                   key={cat.key}
                   onClick={() => handleCategoryClick(cat.key)}
-                  className={`p-3 rounded-xl text-center flex flex-col items-center justify-center gap-1.5 transition ${
+                  className={`p-3 rounded-xl text-center flex  items-center justify-center gap-1.5 transition ${
                     isActive
                       ? 'border-2 border-[#2A5C3C]'
                       : 'border border-slate-100 opacity-60'
@@ -123,6 +116,21 @@ export default function Request() {
               );
             })}
           </div>
+        </div>
+
+        {/* Descripción libre */}
+        <div className="space-y-1.5">
+          <span className="text-xs font-bold text-slate-900 block">
+            Descripción <span className="text-[10px] font-normal text-slate-400">(opcional)</span>
+          </span>
+          <textarea
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+            maxLength={500}
+            rows={3}
+            placeholder="Describe tu solicitud. (opcional)"
+            className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-700 placeholder:text-slate-300 resize-none focus:outline-none focus:border-[#2A5C3C] transition"
+          />
         </div>
       </div>
 
