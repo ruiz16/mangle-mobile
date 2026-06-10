@@ -22,7 +22,7 @@ interface PendingAvalCredit {
 }
 
 export default function Gacc() {
-  const { state, setMunicipio, setGaccName, setGaccCode, setGaccMembers } = useAppState();
+  const { state, refreshTokens, setMunicipio, setGaccName, setGaccCode, setGaccMembers } = useAppState();
   const [pendingCredits, setPendingCredits] = useState<PendingAvalCredit[]>([]);
   const [loadingAval, setLoadingAval] = useState<string | null>(null); // credito_id being avalado
 
@@ -38,7 +38,7 @@ export default function Gacc() {
         validado_en: string | null;
         participante: { nombre: string; score_reputacion: number } | null;
       }>;
-    }>('/api/gacc/mi-grupo', { token: state.authToken })
+    }>('/api/gacc/mi-grupo', { token: state.authToken, refreshToken: state.refreshToken, onTokenRefresh: refreshTokens })
       .then((data) => {
         if (data?.grupo) {
           setGaccName(data.grupo.nombre);
@@ -70,6 +70,8 @@ export default function Gacc() {
     if (!state.authToken) return;
     apiGet<{ creditos: PendingAvalCredit[] }>('/api/gacc/pendientes-de-aval', {
       token: state.authToken,
+      refreshToken: state.refreshToken,
+      onTokenRefresh: refreshTokens,
     })
       .then((data) => {
         setPendingCredits(data?.creditos ?? []);
@@ -95,7 +97,7 @@ export default function Gacc() {
   const handleAvalar = async (creditoId: string) => {
     setLoadingAval(creditoId);
     try {
-      await apiPost('/api/avales', { credito_id: creditoId }, { token: state.authToken });
+      await apiPost('/api/avales', { credito_id: creditoId }, { token: state.authToken, refreshToken: state.refreshToken, onTokenRefresh: refreshTokens });
       showToast('Aval Registrado', 'Has avalado este crédito con éxito.', 'success');
       // Remove from pending list and refresh
       setPendingCredits((prev) => prev.filter((c) => c.id !== creditoId));
@@ -108,7 +110,7 @@ export default function Gacc() {
       try {
         const data = await apiGet<{ creditos: PendingAvalCredit[] }>(
           '/api/gacc/pendientes-de-aval',
-          { token: state.authToken },
+          { token: state.authToken, refreshToken: state.refreshToken, onTokenRefresh: refreshTokens },
         );
         setPendingCredits(data?.creditos ?? []);
       } catch {

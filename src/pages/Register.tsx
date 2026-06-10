@@ -9,6 +9,7 @@ import { apiPost } from '../lib/api';
 export default function Register() {
   const {
     state,
+    refreshTokens,
     setFullName,
     setEmail,
     setRole,
@@ -79,18 +80,18 @@ export default function Register() {
         rol: 'usuario',
         oficio: state.oficio.trim(),
         telefono: localPhone.trim(),
-      }, { token: state.authToken });
+      }, { token: state.authToken, refreshToken: state.refreshToken, onTokenRefresh: refreshTokens });
 
       // 2. Crear o unirse al GACC
       if (state.gaccMode === 'create') {
         await apiPost('/api/gacc', {
           nombre: localGaccName.trim() || 'Mi GACC',
           municipio: localMunicipio,
-        }, { token: state.authToken });
+        }, { token: state.authToken, refreshToken: state.refreshToken, onTokenRefresh: refreshTokens });
       } else if (localCode.trim()) {
         await apiPost('/api/gacc/unirse', {
           codigo: localCode.trim().toUpperCase(),
-        }, { token: state.authToken });
+        }, { token: state.authToken, refreshToken: state.refreshToken, onTokenRefresh: refreshTokens });
       }
     } catch (err: any) {
       const msg = err?.message || err?.detail || 'Error al registrar en el servidor. Verificá tu conexión e intentá de nuevo.';

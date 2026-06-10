@@ -36,6 +36,7 @@ export function useAuth() {
     setAuthStep,
     setSiweAuth,
     setAuthTokens,
+    refreshTokens,
     clearAuth,
     connectWallet,
   } = useAppState();
@@ -107,8 +108,14 @@ export function useAuth() {
       const savedToken = state.authToken;
       if (savedToken) {
         try {
-          // Ping a protected endpoint — if it returns 200, session is valid
-          await apiGet('/api/participantes/me', { token: savedToken });
+          // Ping a protected endpoint — if it returns 200, session is valid.
+          // Pass refreshToken so an expired access_token is silently renewed
+          // instead of triggering a full SIWE re-auth.
+          await apiGet('/api/participantes/me', {
+            token: savedToken,
+            refreshToken: state.refreshToken,
+            onTokenRefresh: refreshTokens,
+          });
           setStep('authenticated');
           return; // ✅ Already authenticated — nothing more to do
         } catch (err) {
@@ -214,11 +221,12 @@ export function useAuth() {
       // guard.attempted stays true — effect won't re-trigger on its own
     }
   }, [
-    // Stable deps only (useCallback, no stale closures)
     state.authToken,
+    state.refreshToken,
     signMessage,
     setSiweAuth,
     setAuthTokens,
+    refreshTokens,
     clearAuth,
     connectWallet,
   ]);

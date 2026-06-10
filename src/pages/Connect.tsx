@@ -40,6 +40,7 @@ const STEP_LABELS: Record<AuthStep, string> = {
 export default function Connect() {
   const {
     state,
+    refreshTokens,
     setFullName,
     setRole,
     setPhone,
@@ -93,7 +94,7 @@ export default function Connect() {
         const [meData, gaccData] = await Promise.all([
           apiGet<{ participante: { nombre: string; rol: string; telefono: string } }>(
             '/api/participantes/me',
-            { token: state.authToken },
+            { token: state.authToken, refreshToken: state.refreshToken, onTokenRefresh: refreshTokens },
           ),
           apiGet<{
             grupo: { id: number; nombre: string; codigo: string; municipio: string } | null;
@@ -104,7 +105,7 @@ export default function Connect() {
               validado_en: string | null;
               participante: { nombre: string; score_reputacion: number } | null;
             }>;
-          }>('/api/gacc/mi-grupo', { token: state.authToken }),
+          }>('/api/gacc/mi-grupo', { token: state.authToken, refreshToken: state.refreshToken, onTokenRefresh: refreshTokens }),
         ]);
 
         if (meData?.participante) {
