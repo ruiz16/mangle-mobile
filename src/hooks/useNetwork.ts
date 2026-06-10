@@ -10,7 +10,7 @@
 // fallback estático de VITE_CELO_NETWORK (Sepolia por defecto).
 // =============================================================================
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { celo, celoSepolia } from 'viem/chains';
 import { resolveContractAddresses, getActiveNetwork } from '../lib/network';
 import type { NetworkConfig } from '../lib/network';

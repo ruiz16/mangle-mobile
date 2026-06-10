@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useAppState } from '../context/AppState';
 import AmountSlider from '../components/AmountSlider';

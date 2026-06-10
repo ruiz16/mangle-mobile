@@ -158,13 +158,13 @@ export function useAuth() {
         const accounts: string[] = await provider.request({ method: 'eth_accounts' });
 
         if (accounts.length > 0) {
-          address = accounts[0];
+          address = accounts[0]!;
         } else {
           // Silent check returned nothing — request access (may show prompt)
           const walletClient = createWalletClient({ transport: custom(provider) });
           const requested: string[] = await walletClient.requestAddresses();
           if (!requested.length) throw new Error('No se obtuvo acceso a la wallet.');
-          address = requested[0];
+          address = requested[0]!;
         }
       } catch (walletErr: any) {
         throw new Error(walletErr?.message || 'No se pudo conectar la wallet.');

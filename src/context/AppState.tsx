@@ -64,7 +64,7 @@ interface AppStateContextValue {
   setCopmBalance: (value: string) => void;
   setAuthStep: (step: AuthStep) => void;
   setSiweAuth: (message: string, signature: `0x${string}`) => void;
-  setAuthTokens: (token: string, refreshToken: string, isNewUser?: boolean) => void;
+  setAuthTokens: (token: string, refreshToken: string, isNewUser?: boolean, profileCompleted?: boolean) => void;
   refreshTokens: (token: string, refreshToken: string) => void;
   clearAuth: () => void;
   setFullName: (name: string) => void;
@@ -131,7 +131,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, siweMessage: message, siweSignature: signature }));
   }, []);
 
-  const setAuthTokens = useCallback((token: string, refreshToken: string, isNewUser?: boolean, profileCompleted?: boolean) => {
+  const setAuthTokens = useCallback((token: string, refreshToken: string, _isNewUser?: boolean, profileCompleted?: boolean) => {
     setState((prev) => ({
       ...prev,
       authToken: token,

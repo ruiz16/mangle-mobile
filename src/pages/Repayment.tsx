@@ -82,7 +82,7 @@ function groupByCredit(cuotas: ApiCuota[]): CuotaGrouped[] {
 
 export default function Repayment() {
   const { state, refreshTokens } = useAppState();
-  const [, navigate] = useLocation();
+  useLocation();
   const wallet = useMiniPay();
 
   const [cuotas, setCuotas] = useState<ApiCuota[]>([]);

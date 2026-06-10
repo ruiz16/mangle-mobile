@@ -12,7 +12,6 @@ export default function Register() {
     refreshTokens,
     setFullName,
     setEmail,
-    setRole,
     setOficio,
     setPhone,
     setGaccMode,
