@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type ToastType = 'success' | 'warning' | 'error' | 'info';
 
@@ -25,6 +25,7 @@ if (typeof window !== 'undefined') {
 export default function Toast() {
   const [data, setData] = useState<ToastData & { id: number } | null>(null);
   const [visible, setVisible] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     console.log('[Toast] Component mounted, registering event listener');
@@ -32,10 +33,10 @@ export default function Toast() {
     const handler = (e: Event) => {
       const d = (e as CustomEvent).detail as ToastData & { id: number };
       console.log('[Toast] Event received', d);
+      if (timerRef.current) clearTimeout(timerRef.current);
       setData(d);
       setVisible(true);
-
-      setTimeout(() => {
+      timerRef.current = setTimeout(() => {
         console.log('[Toast] Hiding toast');
         setVisible(false);
       }, 3500);
@@ -46,6 +47,7 @@ export default function Toast() {
     return () => {
       console.log('[Toast] Component unmounting, removing event listener');
       window.removeEventListener(TOAST_EVENT, handler);
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
 
@@ -63,7 +65,7 @@ export default function Toast() {
 
   return (
     <div
-      className={`fixed bottom-20 right-1/2 translate-x-1/2 z-[9999] bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-xl border border-slate-800 max-w-xs w-full flex items-start gap-3 transition-all duration-300 ${
+      className={`fixed bottom-20 right-1/2 translate-x-1/2 z-[9999] bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-xl border border-slate-800 max-w-xs w-full flex items-start gap-3 transition-[opacity,transform] duration-300 ${
         show ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'
       }`}
     >

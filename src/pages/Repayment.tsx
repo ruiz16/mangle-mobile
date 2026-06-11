@@ -172,7 +172,7 @@ export default function Repayment() {
 
     try {
       // 1. Send COPm via wallet
-      showToast('Enviando', 'Confirmá la transacción en tu wallet...', 'info');
+      showToast('Enviando', 'Confirmá la transacción en tu wallet.', 'info');
 
       const txHash = await wallet.sendCopm(
         pagoConfig.platformWallet as Address,
@@ -180,7 +180,7 @@ export default function Repayment() {
         state.walletAddress as Address,
       );
 
-      showToast('Verificando', 'Transacción enviada. Esperando confirmación on-chain...', 'info');
+      showToast('Verificando', 'Transacción enviada. Esperando confirmación on-chain.', 'info');
 
       // 2. Wait for the transaction to be confirmed on-chain
       const publicClient = createPublicClient({
@@ -222,7 +222,7 @@ export default function Repayment() {
 
       showToast(
         '¡Pago Exitoso!',
-        `Cuota #${cuota.numero_cuota} pagada en la blockchain. Tx: ${txHash.slice(0, 10)}...`,
+        `Cuota #${cuota.numero_cuota} pagada en la blockchain. Tx: ${txHash}`,
         'success',
       );
     } catch (err: any) {
@@ -252,7 +252,7 @@ export default function Repayment() {
       <div className="flex-1 flex items-center justify-center p-5">
         <div className="text-center">
           <i className="fa-solid fa-spinner fa-spin text-3xl text-[#2A5C3C]" />
-          <p className="text-xs text-slate-500">Cargando cuotas...</p>
+          <p className="text-xs text-slate-500">Cargando cuotas</p>
         </div>
       </div>
     );
@@ -400,7 +400,7 @@ export default function Repayment() {
                     {group.descripcion ?? 'Ciclo de Crédito'}
                   </span>
                   <h4 className="text-2xl font-black mt-0.5">
-                    {formatCopm(group.monto)} COPm
+                    {formatCopm(group.monto)}
                   </h4>
                   <span className="text-[9px] text-emerald-300">
                     ~ {parseInt(group.monto).toLocaleString('es-CO')} COPm
@@ -451,7 +451,7 @@ export default function Repayment() {
                             )}
                           </div>
                           <p className="text-[10px] text-slate-400 mt-0.5">
-                            {formatCopm(cuota.monto_cuota)} COPm · Vence {formatDate(cuota.fecha_vencimiento)}
+                            {formatCopm(cuota.monto_cuota)} · Vence {formatDate(cuota.fecha_vencimiento)}
                           </p>
                         </div>
 
@@ -483,7 +483,7 @@ export default function Repayment() {
                       {/* Show tx_hash if paid */}
                       {isPaid && cuota.tx_hash_pago && (
                         <p className="text-[8px] text-slate-400 mt-1 font-mono truncate">
-                          Tx: {cuota.tx_hash_pago.slice(0, 16)}...
+                          Tx: {cuota.tx_hash_pago}
                         </p>
                       )}
                     </div>

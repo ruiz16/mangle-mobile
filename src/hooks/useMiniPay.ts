@@ -10,7 +10,7 @@
 // =============================================================================
 
 import { useState, useCallback, useEffect } from 'react';
-import { createWalletClient, createPublicClient, custom, http, formatUnits, parseUnits } from 'viem';
+import { createWalletClient, createPublicClient, custom, http, formatUnits, parseUnits, encodeFunctionData } from 'viem';
 import { getActiveChain, getActiveRpc, resolveContractAddresses } from '../lib/network';
 import type { Address } from 'viem';
 
@@ -210,25 +210,48 @@ export function useMiniPay(): UseMiniPayReturn {
     amountCopm: string,
     from: Address,
   ): Promise<`0x${string}`> => {
-    const walletClient = getWalletClient();
+    if (!provider) {
+      throw new Error('No se encontró una wallet.');
+    }
 
-    // Detectar la red actual y resolver la dirección de COPm
-    const chainId = await walletClient.getChainId().catch(() => ACTIVE_CHAIN.id);
+    // 1. Switch to Celo before doing anything
+    const switchClient = createWalletClient({ chain: ACTIVE_CHAIN, transport: custom(provider) });
+    try {
+      await switchClient.switchChain({ id: ACTIVE_CHAIN.id });
+    } catch (switchErr: any) {
+      if (switchErr?.code === 4902) {
+        await switchClient.addChain({ chain: ACTIVE_CHAIN });
+        await switchClient.switchChain({ id: ACTIVE_CHAIN.id });
+      }
+      // 4001 (user rejected) or MiniPay (no switchChain) — continue anyway
+    }
+
+    // 2. Resolve contract address from actual chain
+    const chainId = await switchClient.getChainId().catch(() => ACTIVE_CHAIN.id);
     const { copmAddress } = resolveContractAddresses(chainId);
 
-    // Convert decimal COPm to wei (18 decimals)
-    const amountWei = parseUnits(amountCopm, 18);
+    // 3. Convert decimal COPm string to wei (18 decimals)
+    const amountWei = parseUnits(String(amountCopm), 18);
 
-    const txHash = await walletClient.writeContract({
-      address: copmAddress,
+    // 4. Encode ERC-20 transfer calldata
+    const data = encodeFunctionData({
       abi: ERC20_ABI,
       functionName: 'transfer',
       args: [to, amountWei],
-      account: from,
     });
 
+    // 5. Fetch the current account from the provider at send time — avoids
+    //    "from should be same as current address" if state.walletAddress is stale.
+    const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
+    const currentFrom = (accounts[0] ?? from) as Address;
+
+    const txHash = await provider.request({
+      method: 'eth_sendTransaction',
+      params: [{ from: currentFrom, to: copmAddress, data }],
+    }) as `0x${string}`;
+
     return txHash;
-  }, [getWalletClient]);
+  }, [provider]);
 
   return {
     isMiniPay,

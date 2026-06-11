@@ -276,7 +276,7 @@ export default function Request() {
             disabled={submitting}
             className="w-full py-3.5 bg-[#2A5C3C] hover:bg-[#1E3E28] disabled:opacity-50 text-white font-extrabold text-sm rounded-2xl shadow-md transition-all"
           >
-            {submitting ? 'Procesando...' : 'Enviar Solicitud'}
+            {submitting ? 'Procesando' : 'Enviar Solicitud'}
           </button>
         </div>
       )}

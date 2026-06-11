@@ -290,7 +290,7 @@ export default function Connect() {
           )}
 
           {step === 'checking_session' && (
-            <p className="text-sm text-slate-400">Buscando una sesión anterior...</p>
+            <p className="text-sm text-slate-400">Buscando una sesión anterior</p>
           )}
         </div>
 

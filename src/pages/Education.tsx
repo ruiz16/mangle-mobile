@@ -149,7 +149,7 @@ export default function Education() {
       <div className="flex-1 flex items-center justify-center p-5">
         <div className="text-center space-y-3">
           <i className="fa-solid fa-spinner fa-spin text-3xl text-[#2A5C3C]" />
-          <p className="text-xs text-slate-500">Cargando módulos...</p>
+          <p className="text-xs text-slate-500">Cargando módulos</p>
         </div>
       </div>
     );
