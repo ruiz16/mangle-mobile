@@ -1,51 +1,170 @@
+import { useState, useEffect } from 'react';
 import { useAppState } from '../context/AppState';
 import PageHeader from '../components/PageHeader';
-import ScoreRing from '../components/ScoreRing';
+import { apiGet } from '../lib/api';
+
+interface HistorialResponse {
+  historial: {
+    score_efectivo: number;
+    antiguedad_meses: number;
+  };
+}
+
+function scoreLabel(score: number): { text: string; color: string } {
+  if (score >= 80) return { text: 'Excelente', color: '#4ade80' };
+  if (score >= 60) return { text: 'Bueno', color: '#fbbf24' };
+  if (score >= 40) return { text: 'Regular', color: '#fb923c' };
+  return { text: 'En construcción', color: '#94a3b8' };
+}
 
 export default function Credential() {
-  const { state } = useAppState();
+  const { state, refreshTokens } = useAppState();
+  const [score, setScore] = useState<number>(state.reputation);
+  const [antiguedad, setAntiguedad] = useState<number>(0);
+
+  useEffect(() => {
+    if (!state.authToken) return;
+    apiGet<HistorialResponse>('/api/participantes/score/historial', {
+      token: state.authToken,
+      refreshToken: state.refreshToken,
+      onTokenRefresh: refreshTokens,
+    })
+      .then((res) => {
+        setScore(res.historial.score_efectivo);
+        setAntiguedad(res.historial.antiguedad_meses);
+      })
+      .catch(() => {});
+  }, [state.authToken]);
+
+  const { text: label, color: labelColor } = scoreLabel(score);
+  const truncatedAddress = state.walletAddress
+    ? `${state.walletAddress.slice(0, 6)}…${state.walletAddress.slice(-4)}`
+    : '—';
+
+  const radius = 52;
+  const sw = 5;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset = circumference - (score / 100) * circumference;
 
   return (
-    <div className="flex-1 flex flex-col justify-between p-5">
-      <div className="space-y-12">
-        <PageHeader
-          title="Tu Reputación On-Chain"
-          subtitle="Credencial Digital"
-        />
+    <div className="flex-1 flex flex-col p-5 gap-6 relative overflow-hidden">
 
-        {/* NFT Card */}
-        <div className="w-full max-w-[240px] mx-auto bg-gradient-to-br from-amber-800 via-yellow-400 to-amber-600 rounded-2xl shadow-lg p-4 text-white flex flex-col justify-between h-[280px] relative overflow-hidden text-left">
-          <div className="absolute -right-8 -bottom-8 w-24 h-24 rounded-full bg-white/10 blur-xl" />
+      {/* Ambient glow */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse 70% 45% at 50% 52%, rgba(217,119,6,0.13) 0%, transparent 70%)' }}
+      />
 
-          <div className="flex justify-between items-start">
-            <div className="flex flex-col">
-              <span className="text-[8px] uppercase tracking-wider text-amber-100">Garantía Social</span>
-              <span className="text-xs font-bold font-serif">MANGLE VC</span>
+      <PageHeader title="Tu Reputación On-Chain" subtitle="Credencial Digital" />
+
+      {/* Card */}
+      <div className="mx-auto w-full max-w-[272px]">
+        <div
+          className="relative rounded-2xl overflow-hidden text-white"
+          style={{
+            background: 'linear-gradient(140deg, #78350f 0%, #d97706 38%, #fbbf24 62%, #92400e 100%)',
+            boxShadow: '0 24px 64px rgba(217,119,6,0.3), 0 4px 16px rgba(0,0,0,0.6)',
+            animation: 'float 4.5s ease-in-out infinite',
+          }}
+        >
+          {/* Shimmer */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: 'linear-gradient(108deg, transparent 38%, rgba(255,255,255,0.1) 50%, transparent 62%)',
+              animation: 'shimmer 3.5s ease-in-out infinite',
+            }}
+          />
+          {/* Top-right corner glow blob */}
+          <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-yellow-300/20 blur-2xl pointer-events-none" />
+
+          <div className="relative p-5 flex flex-col gap-5">
+            {/* Header row */}
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-[7px] uppercase tracking-[0.25em] text-amber-200/60 font-semibold">Garantía Social</p>
+                <p className="text-sm font-black tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>MANGLE VC</p>
+              </div>
+              <div className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center border border-white/15">
+                <i className="fa-solid fa-dragon text-amber-200 text-sm" />
+              </div>
             </div>
-            <i className="fa-solid fa-dragon text-amber-200 text-lg" />
-          </div>
 
-          <div className="flex flex-col items-center my-2">
-            <ScoreRing score={state.reputation} />
-            <span className="text-[9px] font-bold text-amber-100 mt-1">Score de Confianza</span>
-          </div>
-
-          <div className="flex justify-between items-end text-[9px]">
-            <div className="flex flex-col">
-              <span className="text-[7px] text-amber-100">Titular</span>
-              <span className="font-bold">{state.fullName || '—'}</span>
+            {/* Score ring */}
+            <div className="flex flex-col items-center gap-2">
+              <div className="relative">
+                <svg width={120} height={120} className="-rotate-90">
+                  <circle cx={60} cy={60} r={radius} stroke="rgba(0,0,0,0.25)" strokeWidth={sw} fill="none" />
+                  <circle
+                    cx={60} cy={60} r={radius}
+                    stroke="white"
+                    strokeWidth={sw}
+                    fill="none"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={dashOffset}
+                    strokeLinecap="round"
+                    style={{
+                      transition: 'stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)',
+                      filter: 'drop-shadow(0 0 5px rgba(255,255,255,0.55))',
+                    }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-[28px] font-black leading-none">{score}</span>
+                  <span className="text-[7px] text-amber-200/70 uppercase tracking-widest mt-0.5">puntos</span>
+                </div>
+              </div>
+              <span
+                className="text-[9px] font-bold uppercase tracking-widest px-3 py-0.5 rounded-full"
+                style={{ background: 'rgba(0,0,0,0.22)', color: labelColor, border: `1px solid ${labelColor}50` }}
+              >
+                {label}
+              </span>
             </div>
-            <div className="flex flex-col items-end">
-              <span className="text-[7px] text-amber-100">Estado</span>
-              <span className="font-bold bg-white/20 px-1 rounded-sm">Válido</span>
+
+            {/* Footer row */}
+            <div className="flex justify-between items-end pt-1 border-t border-white/10">
+              <div>
+                <p className="text-[7px] text-amber-200/50 uppercase tracking-wider">Titular</p>
+                <p className="text-[11px] font-bold">{state.fullName || '—'}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[7px] text-amber-200/50 uppercase tracking-wider">Wallet</p>
+                <p className="text-[9px] font-mono text-amber-100/80">{truncatedAddress}</p>
+              </div>
             </div>
           </div>
         </div>
-
-        <p className="text-[11px] text-slate-500 px-4 leading-relaxed">
-          Esta credencial vive de manera auditable y segura como un NFT dinámico en tu wallet MiniPay. Sirve como tu pasaporte de confianza para la Fase 2.
-        </p>
       </div>
+
+      {/* Stats cards */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: 'Score', value: String(score) },
+          { label: 'Antigüedad', value: `${antiguedad}m` },
+          { label: 'Estado', value: 'Válido' },
+        ].map(({ label: l, value }) => (
+          <div key={l} className="flex flex-col items-center gap-2 rounded-2xl p-4 bg-white border border-slate-100 shadow-sm">
+            <span className="text-base font-black text-slate-800 leading-none">{value}</span>
+            <span className="text-[9px] text-slate-400 uppercase tracking-wide">{l}</span>
+          </div>
+        ))}
+      </div>
+
+      <p className="text-[10px] text-slate-600 text-center px-6 leading-relaxed">
+        Esta credencial vive de forma auditable como un NFT dinámico en tu wallet MiniPay. Tu pasaporte de confianza para la Fase 2.
+      </p>
+
+      <style>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) rotate(-0.4deg); }
+          50% { transform: translateY(-7px) rotate(0.4deg); }
+        }
+        @keyframes shimmer {
+          0% { transform: translateX(-120%); }
+          65%, 100% { transform: translateX(220%); }
+        }
+      `}</style>
     </div>
   );
 }

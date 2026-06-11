@@ -82,7 +82,7 @@ function groupByCredit(cuotas: ApiCuota[]): CuotaGrouped[] {
 // ---- component ----
 
 export default function Repayment() {
-  const { state, refreshTokens } = useAppState();
+  const { state, refreshTokens, setReputation } = useAppState();
   useLocation();
   const wallet = useMiniPay();
 
@@ -211,6 +211,15 @@ export default function Repayment() {
       // 4. Remove paid cuota from local list
       setCuotas((prev) => prev.filter((c) => c.id !== cuota.id));
 
+      // 5. Refresh reputation score from server
+      apiGet<{ historial: { score_efectivo: number } }>('/api/participantes/score/historial', {
+        token: authToken,
+        refreshToken: state.refreshToken,
+        onTokenRefresh: refreshTokens,
+      })
+        .then((res) => setReputation(res.historial.score_efectivo))
+        .catch(() => {});
+
       showToast(
         '¡Pago Exitoso!',
         `Cuota #${cuota.numero_cuota} pagada en la blockchain. Tx: ${txHash.slice(0, 10)}...`,
@@ -224,7 +233,7 @@ export default function Repayment() {
     } finally {
       setPayingCuotaId(null);
     }
-  }, [payingCuotaId, pagoConfig, state.walletAddress, state.authToken, state.refreshToken, refreshTokens, wallet, authToken]);
+  }, [payingCuotaId, pagoConfig, state.walletAddress, state.authToken, state.refreshToken, refreshTokens, wallet, authToken, setReputation]);
 
   // ------------------------------------------------------------------
   // Derived
@@ -242,8 +251,8 @@ export default function Repayment() {
     return (
       <div className="flex-1 flex items-center justify-center p-5">
         <div className="text-center">
-          <i className="fa-solid fa-spinner fa-spin text-emerald-600 text-xl mb-2" />
-          <p className="text-xs text-slate-500">¡Cargando tus cuotas, por favor espera!</p>
+          <i className="fa-solid fa-spinner fa-spin text-3xl text-[#2A5C3C]" />
+          <p className="text-xs text-slate-500">Cargando cuotas...</p>
         </div>
       </div>
     );

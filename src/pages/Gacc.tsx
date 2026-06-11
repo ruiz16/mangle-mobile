@@ -136,13 +136,13 @@ export default function Gacc() {
 
         {/* Community Alert */}
         {state.nodeAlert && (
-          <div className="bg-rose-50 border border-rose-200 p-2.5 rounded-xl text-[10px] text-rose-800 animate-pulse">
-            <div className="flex gap-1.5 items-start">
-              <i className="fa-solid fa-circle-exclamation text-xs mt-0.5" />
-              <div>
-                <strong className="font-bold block">Garantía Social Comprometida</strong>
+          <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex gap-3 items-start">
+            <i className="fa-solid fa-circle-exclamation text-rose-500 mt-0.5 text-sm shrink-0" />
+            <div>
+              <p className="text-xs font-bold text-rose-800">Garantía Social Comprometida</p>
+              <p className="text-[10px] text-rose-700 mt-0.5 leading-relaxed">
                 Tu compañera <span className="font-bold">{state.alertPartnerName}</span> presenta retraso. Tu red tiene 48h para apoyarla antes de suspender el nodo.
-              </div>
+              </p>
             </div>
           </div>
         )}

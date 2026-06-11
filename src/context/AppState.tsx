@@ -92,6 +92,7 @@ interface AppStateContextValue {
   triggerNodeAlert: () => void;
   restoreNodeAlert: () => void;
   addReputation: (points: number) => void;
+  setReputation: (score: number) => void;
 }
 
 const AppStateContext = createContext<AppStateContextValue | null>(null);
@@ -310,6 +311,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const setReputation = useCallback((score: number) => {
+    setState((prev) => ({ ...prev, reputation: Math.max(0, Math.min(100, score)) }));
+  }, []);
+
   // ---------- Provide ----------
 
   return (
@@ -345,6 +350,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         triggerNodeAlert,
         restoreNodeAlert,
         addReputation,
+        setReputation,
       }}
     >
       {children}
