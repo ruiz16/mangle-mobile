@@ -76,13 +76,161 @@ function groupByCredit(cuotas: ApiCuota[]): CuotaGrouped[] {
     }
     map.get(c.credito_id)!.cuotas.push(c);
   }
-  return Array.from(map.values());
+  return Array.from(map.values()).sort((a, b) => {
+    // Active credit always first
+    if (a.estado === 'desembolsado') return -1;
+    if (b.estado === 'desembolsado') return 1;
+    return 0;
+  });
+}
+
+// ---- CreditGroup sub-component ----
+
+interface CreditGroupProps {
+  group: CuotaGrouped;
+  payingCuotaId: string | null;
+  onPay: ((cuota: ApiCuota) => void) | null;
+  isHistory: boolean;
+}
+
+function CreditGroup({ group, payingCuotaId, onPay, isHistory }: CreditGroupProps) {
+  const pendingCount = group.cuotas.filter((c) => c.estado !== 'pagada').length;
+
+  const headerLabel = () => {
+    if (isHistory) return 'Pagado';
+    if (group.estado === 'desembolsado') return 'Activo';
+    return group.estado;
+  };
+
+  return (
+    <div>
+      {/* Credit summary card */}
+      <div
+        className={`text-white p-4 rounded-2xl shadow-sm space-y-3 relative overflow-hidden ${
+          isHistory
+            ? 'bg-gradient-to-br from-slate-500 to-slate-700'
+            : 'bg-gradient-to-br from-[#2A5C3C] to-[#1E3E28]'
+        }`}
+      >
+        <div className="absolute -right-8 -bottom-8 w-24 h-24 rounded-full bg-white/5" />
+
+        <div className="flex justify-between items-start">
+          <div>
+            <span className={`text-[9px] uppercase tracking-wider ${isHistory ? 'text-slate-300' : 'text-emerald-200'}`}>
+              {group.descripcion ?? 'Ciclo de Crédito'}
+            </span>
+            <h4 className="text-2xl font-black mt-0.5">
+              {formatCopm(group.monto)}
+            </h4>
+            <span className={`text-[9px] ${isHistory ? 'text-slate-300' : 'text-emerald-300'}`}>
+              {(() => {
+                const totalInteres = group.cuotas.reduce(
+                  (sum, c) => sum + Number(c.monto_interes),
+                  0,
+                );
+                return `+ ${formatCopm(totalInteres.toString())} intereses`;
+              })()}
+            </span>
+          </div>
+          <span className="text-[9px] bg-white/20 px-2 py-0.5 rounded font-mono">
+            {headerLabel()}
+          </span>
+        </div>
+      </div>
+
+      {/* Cuotas list */}
+      <div className="mt-3 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-3.5 py-2 border-b border-slate-100 flex justify-between items-center">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            {isHistory
+              ? `${group.cuotas.length} cuotas — completado`
+              : `Cuotas (${pendingCount} pendiente${pendingCount !== 1 ? 's' : ''})`}
+          </span>
+          {isHistory && (
+            <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <i className="fa-solid fa-circle-check" /> Saldado
+            </span>
+          )}
+        </div>
+
+        <div className="divide-y divide-slate-100">
+          {group.cuotas.map((cuota) => {
+            const isPending = cuota.estado === 'pendiente' || cuota.estado === 'vencida';
+            const isPastDue = cuota.estado === 'vencida';
+            const isPaid = cuota.estado === 'pagada';
+            const daysLeft = daysUntil(cuota.fecha_vencimiento);
+            const isPaying = payingCuotaId === cuota.id;
+
+            return (
+              <div key={cuota.id} className="px-3.5 py-3">
+                <div className="flex justify-between items-center">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-700">
+                        Cuota {cuota.numero_cuota} de {cuota.total_cuotas}
+                      </span>
+                      {isPaid ? (
+                        <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <i className="fa-solid fa-circle-check" /> Pagada
+                        </span>
+                      ) : isPastDue ? (
+                        <span className="text-[9px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
+                          Vencida
+                        </span>
+                      ) : (
+                        <span className="text-[9px] text-slate-400">
+                          {daysLeft > 0 ? `En ${daysLeft} días` : 'Vence hoy'}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      {formatCopm(cuota.monto_cuota)} · Vence {formatDate(cuota.fecha_vencimiento)}
+                    </p>
+                  </div>
+
+                  {isPending && !isHistory && onPay && (
+                    <button
+                      onClick={() => onPay(cuota)}
+                      disabled={isPaying}
+                      className={`ml-2 px-3 py-2 rounded-xl text-[10px] font-extrabold transition flex items-center gap-1 ${
+                        isPaying
+                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                          : isPastDue
+                            ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-sm'
+                            : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
+                      }`}
+                    >
+                      {isPaying ? (
+                        <>
+                          <i className="fa-solid fa-spinner fa-spin" /> Pagando
+                        </>
+                      ) : (
+                        <>
+                          <i className="fa-solid fa-money-bill-transfer" /> Pagar
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+
+                {isPaid && cuota.tx_hash_pago && (
+                  <p className="text-[8px] text-slate-400 mt-1 font-mono truncate">
+                    Tx: {cuota.tx_hash_pago}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ---- component ----
 
 export default function Repayment() {
-  const { state, refreshTokens, setReputation } = useAppState();
+  const { state, refreshTokens, setReputation, showErrorModal } = useAppState();
   useLocation();
   const wallet = useMiniPay();
 
@@ -92,6 +240,7 @@ export default function Repayment() {
   const [payingCuotaId, setPayingCuotaId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingCredit, setPendingCredit] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const lottieRef = useRef<null | { setSpeed: (s: number) => void }>(null);
 
   // Speed 0.5 for the pending-credit Lottie (matches splash feel)
@@ -143,7 +292,9 @@ export default function Repayment() {
         }
       } catch (err: any) {
         if (!cancelled) {
-          setError(err?.message ?? 'Error de conexión');
+          const msg = err?.message ?? 'Error de conexión';
+          setError(msg);
+          showErrorModal('Error de conexión', 'No se pudo cargar tu información de pagos. Verificá tu conexión e intentá de nuevo.');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -171,7 +322,6 @@ export default function Repayment() {
     setPayingCuotaId(cuota.id);
 
     try {
-      // 1. Send COPm via wallet
       showToast('Enviando', 'Confirmá la transacción en tu wallet.', 'info');
 
       const txHash = await wallet.sendCopm(
@@ -229,7 +379,7 @@ export default function Repayment() {
       const msg = err instanceof ApiRequestError
         ? (PAGO_ERROR_MESSAGES[err.code] ?? err.message)
         : (err?.shortMessage || err?.message || 'Error al procesar el pago');
-      showToast('Error', msg, 'error');
+      showErrorModal('Error en el pago', msg);
     } finally {
       setPayingCuotaId(null);
     }
@@ -240,6 +390,8 @@ export default function Repayment() {
   // ------------------------------------------------------------------
   const hasCredits = cuotas.length > 0;
   const grouped = groupByCredit(cuotas);
+  const activeGroup = grouped.find((g) => g.estado === 'desembolsado') ?? null;
+  const historicalGroups = grouped.filter((g) => g.estado !== 'desembolsado');
 
   // We need a connected wallet for payment
   const walletConnected = !!state.walletAddress;
@@ -356,7 +508,7 @@ export default function Repayment() {
   }
 
   // ------------------------------------------------------------------
-  // Main render: cuotas grouped by credit
+  // Main render: active credit + collapsible history
   // ------------------------------------------------------------------
   return (
     <div className="flex-1 flex flex-col justify-between p-5">
@@ -387,112 +539,45 @@ export default function Repayment() {
           </div>
         )}
 
-        {/* Credit groups */}
-        {grouped.map((group) => (
-          <div key={group.credito_id}>
-            {/* Credit summary card */}
-            <div className="bg-gradient-to-br from-[#2A5C3C] to-[#1E3E28] text-white p-4 rounded-2xl shadow-sm space-y-3 relative overflow-hidden">
-              <div className="absolute -right-8 -bottom-8 w-24 h-24 rounded-full bg-white/5" />
+        {/* ── Active credit ── */}
+        {activeGroup && (
+          <CreditGroup
+            group={activeGroup}
+            payingCuotaId={payingCuotaId}
+            onPay={handlePay}
+            isHistory={false}
+          />
+        )}
 
-              <div className="flex justify-between items-start">
-                <div>
-                  <span className="text-[9px] uppercase tracking-wider text-emerald-200">
-                    {group.descripcion ?? 'Ciclo de Crédito'}
-                  </span>
-                  <h4 className="text-2xl font-black mt-0.5">
-                    {formatCopm(group.monto)}
-                  </h4>
-                  <span className="text-[9px] text-emerald-300">
-                    ~ {parseInt(group.monto).toLocaleString('es-CO')} COPm
-                  </span>
-                </div>
-                <span className="text-[9px] bg-white/20 px-2 py-0.5 rounded font-mono">
-                  {group.estado === 'desembolsado' ? 'Activo' : group.estado}
-                </span>
+        {/* ── Historical credits ── */}
+        {historicalGroups.length > 0 && (
+          <div>
+            <button
+              onClick={() => setHistoryOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-[10px] font-bold text-slate-500 uppercase tracking-wider transition hover:bg-slate-100"
+            >
+              <span className="flex items-center gap-2">
+                <i className="fa-solid fa-clock-rotate-left" />
+                Historial de créditos ({historicalGroups.length})
+              </span>
+              <i className={`fa-solid fa-chevron-${historyOpen ? 'up' : 'down'} text-slate-400`} />
+            </button>
+
+            {historyOpen && (
+              <div className="mt-3 space-y-4">
+                {historicalGroups.map((group) => (
+                  <CreditGroup
+                    key={group.credito_id}
+                    group={group}
+                    payingCuotaId={null}
+                    onPay={null}
+                    isHistory
+                  />
+                ))}
               </div>
-            </div>
-
-            {/* Cuotas list */}
-            <div className="mt-3 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              <div className="px-3.5 py-2 border-b border-slate-100">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                  Cuotas ({group.cuotas.filter((c) => c.estado !== 'pagada').length} pendientes)
-                </span>
-              </div>
-
-              <div className="divide-y divide-slate-100">
-                {group.cuotas.map((cuota) => {
-                  const isPending = cuota.estado === 'pendiente' || cuota.estado === 'vencida';
-                  const isPastDue = cuota.estado === 'vencida';
-                  const isPaid = cuota.estado === 'pagada';
-                  const daysLeft = daysUntil(cuota.fecha_vencimiento);
-                  const isPaying = payingCuotaId === cuota.id;
-
-                  return (
-                    <div key={cuota.id} className="px-3.5 py-3">
-                      <div className="flex justify-between items-center">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-700">
-                              Cuota {cuota.numero_cuota} de {cuota.total_cuotas}
-                            </span>
-                            {isPaid ? (
-                              <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <i className="fa-solid fa-circle-check" /> Pagada
-                              </span>
-                            ) : isPastDue ? (
-                              <span className="text-[9px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
-                                Vencida
-                              </span>
-                            ) : (
-                              <span className="text-[9px] text-slate-400">
-                                {daysLeft > 0 ? `En ${daysLeft} días` : 'Vence hoy'}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[10px] text-slate-400 mt-0.5">
-                            {formatCopm(cuota.monto_cuota)} · Vence {formatDate(cuota.fecha_vencimiento)}
-                          </p>
-                        </div>
-
-                        {isPending && (
-                          <button
-                            onClick={() => handlePay(cuota)}
-                            disabled={isPaying}
-                            className={`ml-2 px-3 py-2 rounded-xl text-[10px] font-extrabold transition flex items-center gap-1 ${
-                              isPaying
-                                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                                : isPastDue
-                                  ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-sm'
-                                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
-                            }`}
-                          >
-                            {isPaying ? (
-                              <>
-                                <i className="fa-solid fa-spinner fa-spin" /> Pagando
-                              </>
-                            ) : (
-                              <>
-                                <i className="fa-solid fa-money-bill-transfer" /> Pagar
-                              </>
-                            )}
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Show tx_hash if paid */}
-                      {isPaid && cuota.tx_hash_pago && (
-                        <p className="text-[8px] text-slate-400 mt-1 font-mono truncate">
-                          Tx: {cuota.tx_hash_pago}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            )}
           </div>
-        ))}
+        )}
       </div>
 
       {/* Wallet connection warning */}

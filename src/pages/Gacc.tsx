@@ -19,10 +19,11 @@ interface PendingAvalCredit {
   avales_minimos: number;
   avales_actuales: number;
   ya_avale: boolean;
+  es_propio: boolean;
 }
 
 export default function Gacc() {
-  const { state, refreshTokens, setMunicipio, setGaccName, setGaccCode, setGaccMembers } = useAppState();
+  const { state, refreshTokens, setMunicipio, setGaccName, setGaccCode, setGaccMembers, showErrorModal } = useAppState();
   const [pendingCredits, setPendingCredits] = useState<PendingAvalCredit[]>([]);
   const [loadingAval, setLoadingAval] = useState<string | null>(null); // credito_id being avalado
 
@@ -103,7 +104,7 @@ export default function Gacc() {
       setPendingCredits((prev) => prev.filter((c) => c.id !== creditoId));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al avalar el crédito';
-      showToast('Error', msg, 'error');
+      showErrorModal('Error al avalar', msg);
     } finally {
       setLoadingAval(null);
       // Refresh pending list
@@ -119,7 +120,8 @@ export default function Gacc() {
     }
   };
 
-  const needsAval = pendingCredits.filter((c) => !c.ya_avale);
+  const creditsToAval = pendingCredits.filter((c) => !c.ya_avale && !c.es_propio);
+  const ownPendingCredit = pendingCredits.find((c) => c.es_propio) ?? null;
 
   return (
     <div className="flex-1 flex flex-col justify-between p-5">
@@ -183,13 +185,56 @@ export default function Gacc() {
           </div>
         </div>
 
+        {/* Own pending credit — read-only progress card */}
+        {ownPendingCredit && (
+          <div className="space-y-2">
+            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              Mi solicitud de crédito
+            </h4>
+            <div className="bg-[#EBF4EE] p-3 rounded-2xl border border-[#2A5C3C]/20 shadow-sm space-y-2">
+              <div className="flex justify-between items-start">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-extrabold text-[#2A5C3C] bg-white px-2 py-0.5 rounded-full border border-[#2A5C3C]/30">
+                      Tu crédito
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 font-medium">
+                    ${Number(ownPendingCredit.monto).toLocaleString('es-CO')} COPm
+                  </p>
+                  {ownPendingCredit.descripcion && (
+                    <p className="text-[10px] text-slate-400 italic">
+                      {ownPendingCredit.descripcion}
+                    </p>
+                  )}
+                </div>
+                <span className="text-[10px] font-bold text-[#2A5C3C] bg-white px-2 py-0.5 rounded-full border border-[#2A5C3C]/30">
+                  {ownPendingCredit.avales_actuales}/{ownPendingCredit.avales_minimos} avales
+                </span>
+              </div>
+              {/* Progress bar */}
+              <div className="w-full bg-white/60 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-[#2A5C3C] h-1.5 rounded-full transition-all"
+                  style={{ width: `${Math.min(100, (ownPendingCredit.avales_actuales / ownPendingCredit.avales_minimos) * 100)}%` }}
+                />
+              </div>
+              <p className="text-[9px] text-[#2A5C3C] font-medium text-center">
+                {ownPendingCredit.avales_actuales >= ownPendingCredit.avales_minimos
+                  ? 'Tu crédito fue avalado y será procesado pronto.'
+                  : `Esperando avales de tus compañeras (${ownPendingCredit.avales_minimos - ownPendingCredit.avales_actuales} faltante${ownPendingCredit.avales_minimos - ownPendingCredit.avales_actuales !== 1 ? 's' : ''})`}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Pending Avales Section */}
-        {needsAval.length > 0 && (
+        {creditsToAval.length > 0 && (
           <div className="space-y-2">
             <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
               Créditos pendientes de avalar
             </h4>
-            {needsAval.map((credito) => (
+            {creditsToAval.map((credito) => (
               <div
                 key={credito.id}
                 className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm space-y-2"

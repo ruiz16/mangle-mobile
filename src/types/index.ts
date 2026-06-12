@@ -186,6 +186,9 @@ export interface AppState {
   // Alerts
   nodeAlert: boolean;
   alertPartnerName: string;
+
+  // Blocking error modal
+  errorModal: { title: string; message: string } | null;
 }
 
 // =============================================================================
@@ -224,5 +227,6 @@ export function createDefaultState(): AppState {
     reputation: 50,
     nodeAlert: false,
     alertPartnerName: '',
+    errorModal: null,
   };
 }

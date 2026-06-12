@@ -93,6 +93,10 @@ interface AppStateContextValue {
   restoreNodeAlert: () => void;
   addReputation: (points: number) => void;
   setReputation: (score: number) => void;
+
+  // Blocking error modal
+  showErrorModal: (title: string, message: string) => void;
+  clearErrorModal: () => void;
 }
 
 const AppStateContext = createContext<AppStateContextValue | null>(null);
@@ -315,6 +319,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, reputation: Math.max(0, Math.min(100, score)) }));
   }, []);
 
+  const showErrorModal = useCallback((title: string, message: string) => {
+    setState((prev) => ({ ...prev, errorModal: { title, message } }));
+  }, []);
+
+  const clearErrorModal = useCallback(() => {
+    setState((prev) => ({ ...prev, errorModal: null }));
+  }, []);
+
   // ---------- Provide ----------
 
   return (
@@ -351,6 +363,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         restoreNodeAlert,
         addReputation,
         setReputation,
+        showErrorModal,
+        clearErrorModal,
       }}
     >
       {children}

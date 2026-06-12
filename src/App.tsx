@@ -2,6 +2,7 @@ import { Route, Switch, useLocation } from 'wouter';
 import { AppStateProvider, useAppState } from './context/AppState';
 import BottomNav from './components/BottomNav';
 import Toast from './components/Toast';
+import ErrorModal from './components/ErrorModal';
 import Splash from './pages/Splash';
 import Connect from './pages/Connect';
 import Register from './pages/Register';
@@ -73,11 +74,24 @@ function MobileShell({ children, showNav }: { children: React.ReactNode; showNav
 // App Root
 // =============================================================================
 
+function GlobalOverlays() {
+  const { state, clearErrorModal } = useAppState();
+  if (!state.errorModal) return null;
+  return (
+    <ErrorModal
+      title={state.errorModal.title}
+      message={state.errorModal.message}
+      onClose={clearErrorModal}
+    />
+  );
+}
+
 export default function App() {
   return (
     <AppStateProvider>
       <div className="h-full flex flex-col bg-slate-950">
         <Toast />
+        <GlobalOverlays />
         <Switch>
           <Route path="/dev">
             <MobileShell showNav={false}>
