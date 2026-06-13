@@ -9,7 +9,7 @@
 // el fallback estático de VITE_CELO_NETWORK.
 // =============================================================================
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { createWalletClient, createPublicClient, custom, http, formatUnits, parseUnits, encodeFunctionData } from 'viem';
 import { getActiveChain, getActiveRpc, resolveContractAddresses } from '../lib/network';
 import type { Address } from 'viem';
@@ -71,11 +71,17 @@ export interface UseMiniPayReturn {
   sendCopm: (to: Address, amountCopm: string, from: Address) => Promise<`0x${string}`>;
 }
 
-export function useMiniPay(): UseMiniPayReturn {
+export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayReturn {
   const [address, setAddress] = useState<Address | null>(null);
   const [copmBalance, setCopmBalance] = useState<bigint | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Stable ref so the disconnect callback never needs to be in effect deps
+  const onDisconnectRef = useRef(options?.onDisconnect);
+  useEffect(() => {
+    onDisconnectRef.current = options?.onDisconnect;
+  });
 
   const provider = typeof window !== 'undefined' ? (window as any).ethereum : undefined;
   const isMiniPay = !!provider?.isMiniPay;
@@ -94,15 +100,30 @@ export function useMiniPay(): UseMiniPayReturn {
       if (accs.length === 0) {
         setAddress(null);
         setCopmBalance(null);
+        onDisconnectRef.current?.();
       } else {
         setAddress(accs[0] as Address);
       }
     };
 
+    const handleDisconnect = () => {
+      setAddress(null);
+      setCopmBalance(null);
+      onDisconnectRef.current?.();
+    };
+
+    const handleOffline = () => {
+      onDisconnectRef.current?.();
+    };
+
     provider.on('accountsChanged', handleAccountsChanged);
+    provider.on('disconnect', handleDisconnect);
+    window.addEventListener('offline', handleOffline);
 
     return () => {
       provider.removeListener('accountsChanged', handleAccountsChanged);
+      provider.removeListener('disconnect', handleDisconnect);
+      window.removeEventListener('offline', handleOffline);
     };
   }, [provider]);
 
