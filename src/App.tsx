@@ -1,5 +1,7 @@
 import { Route, Switch, useLocation } from 'wouter';
 import { AppStateProvider, useAppState } from './context/AppState';
+import { useMiniPay } from './hooks/useMiniPay';
+import { showToast } from './components/Toast';
 import BottomNav from './components/BottomNav';
 import Toast from './components/Toast';
 import ErrorModal from './components/ErrorModal';
@@ -86,12 +88,40 @@ function GlobalOverlays() {
   );
 }
 
+// =============================================================================
+// DisconnectGuard — handles wallet disconnect and network loss globally
+// =============================================================================
+//
+// Always mounted inside AppStateProvider. When the wallet disconnects or the
+// browser goes offline while a session is active, clears auth and redirects
+// to /connect so the user re-authenticates cleanly.
+// =============================================================================
+
+function DisconnectGuard() {
+  const { state, clearAuth } = useAppState();
+  const [, navigate] = useLocation();
+
+  useMiniPay({
+    onDisconnect: () => {
+      // Only act if there's an active session — avoids infinite redirects
+      // when the event fires on /connect before auth completes.
+      if (!state.authToken) return;
+      clearAuth();
+      navigate('/connect');
+      showToast('Sesión cerrada', 'Tu wallet se desconectó o perdiste conexión.', 'info');
+    },
+  });
+
+  return null;
+}
+
 export default function App() {
   return (
     <AppStateProvider>
       <div className="h-full flex flex-col bg-slate-950">
         <Toast />
         <GlobalOverlays />
+        <DisconnectGuard />
         <Switch>
           <Route path="/dev">
             <MobileShell showNav={false}>
