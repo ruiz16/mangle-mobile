@@ -174,46 +174,80 @@ export function useAuth() {
       connectWallet(address);
       guard.current.lastAddress = address;
 
-      // ── Step 3: Fetch server-validated nonce ─────────────────────
-      setStep('fetching_nonce');
-      const chainId = getActiveChain().id;
+      // ── Step 3+: Bifurcate by connector ──────────────────────────
+      //
+      // MiniPay does not support personal_sign — skip nonce+signing
+      // and go directly to the address-only exchange endpoint.
+      // MetaMask uses the full SIWE flow.
+      // ─────────────────────────────────────────────────────────────
 
-      const nonceResult = await apiGet<{ nonce: string }>(
-        `/api/auth/nonce?wallet_address=${address}`,
-      );
+      if (isMiniPay) {
+        // ── MiniPay path: address-only auth ─────────────────────────
+        setStep('exchanging');
 
-      // ── Step 4: Sign SIWE message (EIP-4361) ─────────────────────
-      setStep('signing');
+        const miniPayResult = await apiPost<{
+          ok: boolean;
+          isNewUser: boolean;
+          profile_completed: boolean;
+          access_token: string;
+          refresh_token: string;
+        }>('/api/auth/minipay', { address });
 
-      const siweMessage = createSiweMessage({
-        address: address as `0x${string}`,
-        chainId,
-        nonce: nonceResult.nonce,
-      });
+        if (!miniPayResult.access_token) {
+          throw new Error('El servidor no devolvió un token de acceso.');
+        }
 
-      const signature = await signMessage(siweMessage, address as `0x${string}`);
-      setSiweAuth(siweMessage, signature);
+        setAuthTokens(
+          miniPayResult.access_token,
+          miniPayResult.refresh_token,
+          miniPayResult.isNewUser,
+          miniPayResult.profile_completed,
+        );
+        setStep('authenticated');
 
-      // ── Step 5: Exchange signature for Supabase session tokens ────
-      setStep('exchanging');
+      } else {
+        // ── MetaMask path: full SIWE flow ────────────────────────────
 
-      const authResult = await apiPost<{
-        ok: boolean;
-        isNewUser: boolean;
-        profile_completed: boolean;
-        access_token: string;
-        refresh_token: string;
-      }>('/api/auth/siwe', { message: siweMessage, signature });
+        // Step 3: Fetch server-validated nonce
+        setStep('fetching_nonce');
+        const chainId = getActiveChain().id;
 
-      console.log('[useAuth] isNewUser:', authResult.isNewUser, 'profile_completed:', authResult.profile_completed);
+        const nonceResult = await apiGet<{ nonce: string }>(
+          `/api/auth/nonce?wallet_address=${address}`,
+        );
 
-      if (!authResult.access_token) {
-        throw new Error('El servidor no devolvió un token de acceso.');
+        // Step 4: Sign SIWE message (EIP-4361)
+        setStep('signing');
+
+        const siweMessage = createSiweMessage({
+          address: address as `0x${string}`,
+          chainId,
+          nonce: nonceResult.nonce,
+        });
+
+        const signature = await signMessage(siweMessage, address as `0x${string}`);
+        setSiweAuth(siweMessage, signature);
+
+        // Step 5: Exchange signature for Supabase session tokens
+        setStep('exchanging');
+
+        const authResult = await apiPost<{
+          ok: boolean;
+          isNewUser: boolean;
+          profile_completed: boolean;
+          access_token: string;
+          refresh_token: string;
+        }>('/api/auth/siwe', { message: siweMessage, signature });
+
+        console.log('[useAuth] isNewUser:', authResult.isNewUser, 'profile_completed:', authResult.profile_completed);
+
+        if (!authResult.access_token) {
+          throw new Error('El servidor no devolvió un token de acceso.');
+        }
+
+        setAuthTokens(authResult.access_token, authResult.refresh_token, authResult.isNewUser, authResult.profile_completed);
+        setStep('authenticated');
       }
-
-      // ── ✅ Authenticated ─────────────────────────────────────────
-      setAuthTokens(authResult.access_token, authResult.refresh_token, authResult.isNewUser, authResult.profile_completed);
-      setStep('authenticated');
     } catch (err: any) {
       const msg = err?.shortMessage || err?.message || 'Error de autenticación.';
       setError(msg);
