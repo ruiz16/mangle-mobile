@@ -14,7 +14,7 @@ import { createWalletClient, createPublicClient, custom, http, formatUnits, pars
 import { getActiveChain, getActiveRpc, resolveContractAddresses } from '../lib/network';
 import type { Address } from 'viem';
 
-// Minimal ERC-20 ABI for balanceOf + transfer
+// Minimal ERC-20 ABI for balanceOf + transfer + approve
 const ERC20_ABI = [
   {
     name: 'balanceOf',
@@ -32,6 +32,29 @@ const ERC20_ABI = [
       { name: 'value', type: 'uint256' },
     ],
     outputs: [{ name: '', type: 'bool' }],
+  },
+  {
+    name: 'approve',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'spender', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+] as const;
+
+const LENDING_POOL_ABI = [
+  {
+    name: 'repay',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'creditId', type: 'bytes32' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [],
   },
 ] as const;
 
@@ -69,6 +92,16 @@ export interface UseMiniPayReturn {
    * @param from - The sender's wallet address (must be connected)
    */
   sendCopm: (to: Address, amountCopm: string, from: Address) => Promise<`0x${string}`>;
+  /**
+   * Repaga un crédito vía LendingPool: approve(pool, amount) + repay(creditId, amount).
+   * Devuelve el hash de la tx de repay. Requiere 2 confirmaciones en la wallet.
+   */
+  repayCopm: (
+    poolAddress: Address,
+    creditId: `0x${string}`,
+    amountCopm: string,
+    from: Address,
+  ) => Promise<`0x${string}`>;
 }
 
 export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayReturn {
@@ -274,6 +307,63 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
     return txHash;
   }, [provider]);
 
+  // --------------------------------------------------------------------------
+  // Repay COPm via LendingPool: approve(pool, amount) + repay(creditId, amount)
+  // --------------------------------------------------------------------------
+  const repayCopm = useCallback(async (
+    poolAddress: Address,
+    creditId: `0x${string}`,
+    amountCopm: string,
+    from: Address,
+  ): Promise<`0x${string}`> => {
+    if (!provider) throw new Error('No se encontró una wallet.');
+
+    const switchClient = createWalletClient({ chain: ACTIVE_CHAIN, transport: custom(provider) });
+    try {
+      await switchClient.switchChain({ id: ACTIVE_CHAIN.id });
+    } catch (switchErr: any) {
+      if (switchErr?.code === 4902) {
+        await switchClient.addChain({ chain: ACTIVE_CHAIN });
+        await switchClient.switchChain({ id: ACTIVE_CHAIN.id });
+      }
+    }
+
+    const chainId = await switchClient.getChainId().catch(() => ACTIVE_CHAIN.id);
+    const { copmAddress } = resolveContractAddresses(chainId);
+    const amountWei = parseUnits(String(amountCopm), 18);
+
+    const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
+    const currentFrom = (accounts[0] ?? from) as Address;
+
+    // 1. approve(pool, amount)
+    const approveData = encodeFunctionData({
+      abi: ERC20_ABI,
+      functionName: 'approve',
+      args: [poolAddress, amountWei],
+    });
+    const approveTx = await provider.request({
+      method: 'eth_sendTransaction',
+      params: [{ from: currentFrom, to: copmAddress, data: approveData }],
+    }) as `0x${string}`;
+
+    // 2. Esperar a que el approve se mine
+    const publicClient = createPublicClient({ chain: ACTIVE_CHAIN, transport: http(RPC_URL) });
+    await publicClient.waitForTransactionReceipt({ hash: approveTx, timeout: 60_000 });
+
+    // 3. repay(creditId, amount)
+    const repayData = encodeFunctionData({
+      abi: LENDING_POOL_ABI,
+      functionName: 'repay',
+      args: [creditId, amountWei],
+    });
+    const repayTx = await provider.request({
+      method: 'eth_sendTransaction',
+      params: [{ from: currentFrom, to: poolAddress, data: repayData }],
+    }) as `0x${string}`;
+
+    return repayTx;
+  }, [provider]);
+
   return {
     isMiniPay,
     isAvailable,
@@ -285,5 +375,6 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
     connect,
     signMessage,
     sendCopm,
+    repayCopm,
   };
 }

@@ -77,6 +77,7 @@ export interface ApiCuota {
   estado: 'pendiente' | 'pagada' | 'vencida';
   tx_hash_pago: string | null;
   fecha_pago: string | null;
+  credito_repayment_mode: string;
 }
 
 /** Response from GET /api/mis-cuotas */
@@ -88,6 +89,7 @@ export interface MisCuotasResponse {
 export interface PagoConfig {
   copmAddress: `0x${string}`;
   platformWallet: `0x${string}`;
+  lendingPoolAddress: `0x${string}`;
 }
 
 /** Body for POST /api/pago */

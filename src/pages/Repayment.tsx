@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'wouter';
-import { createPublicClient, http } from 'viem';
+import { createPublicClient, http, keccak256, stringToHex } from 'viem';
 import { useAppState } from '../context/AppState';
 import { useMiniPay } from '../hooks/useMiniPay';
 import PageHeader from '../components/PageHeader';
@@ -322,13 +322,30 @@ export default function Repayment() {
     setPayingCuotaId(cuota.id);
 
     try {
-      showToast('Enviando', 'Confirmá la transacción en tu wallet.', 'info');
-
-      const txHash = await wallet.sendCopm(
-        pagoConfig.platformWallet as Address,
-        cuota.monto_cuota,
-        state.walletAddress as Address,
+      showToast(
+        'Enviando',
+        cuota.credito_repayment_mode === 'pool'
+          ? 'Confirmá DOS transacciones en tu wallet (autorización + pago).'
+          : 'Confirmá la transacción en tu wallet.',
+        'info',
       );
+
+      let txHash: `0x${string}`;
+      if (cuota.credito_repayment_mode === 'pool') {
+        const creditId = keccak256(stringToHex(cuota.credito_id));
+        txHash = await wallet.repayCopm(
+          pagoConfig.lendingPoolAddress,
+          creditId,
+          cuota.monto_cuota,
+          state.walletAddress as Address,
+        );
+      } else {
+        txHash = await wallet.sendCopm(
+          pagoConfig.platformWallet as Address,
+          cuota.monto_cuota,
+          state.walletAddress as Address,
+        );
+      }
 
       showToast('Verificando', 'Transacción enviada. Esperando confirmación on-chain.', 'info');
 

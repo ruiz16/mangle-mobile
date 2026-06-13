@@ -27,6 +27,7 @@ export interface NetworkConfig {
   copmAddress: `0x${string}`;
   cusdAddress: `0x${string}`;
   apiBase: string;
+  lendingPoolAddress: `0x${string}`;
 }
 
 // =============================================================================
@@ -55,6 +56,7 @@ export const NETWORK_CONFIG: Record<CeloNetwork, NetworkConfig> = {
       copmAddress: requireEnv('VITE_COPM_MAINNET') as `0x${string}`,
       cusdAddress: requireEnv('VITE_CUSD_MAINNET') as `0x${string}`,
       apiBase: requireEnv('VITE_API_URL'),
+      lendingPoolAddress: requireEnv('VITE_LENDING_POOL_MAINNET') as `0x${string}`,
     };
   },
   get sepolia() {
@@ -64,6 +66,7 @@ export const NETWORK_CONFIG: Record<CeloNetwork, NetworkConfig> = {
       copmAddress: requireEnv('VITE_COPM_SEPOLIA') as `0x${string}`,
       cusdAddress: requireEnv('VITE_CUSD_SEPOLIA') as `0x${string}`,
       apiBase: requireEnv('VITE_API_URL'),
+      lendingPoolAddress: requireEnv('VITE_LENDING_POOL_SEPOLIA') as `0x${string}`,
     };
   },
 };
