@@ -285,7 +285,7 @@ export default function Connect() {
 
           {step === 'signing' && (
             <p className="text-sm text-slate-500 leading-relaxed">
-              Revisá tu wallet <strong className="text-[#2A5C3C]">{connectorType}</strong> y firmá el mensaje para autenticarte.
+              Revisá tu wallet y firmá el mensaje para autenticarte.
             </p>
           )}
 
