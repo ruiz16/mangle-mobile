@@ -18,14 +18,27 @@ interface PendingAvalCredit {
   fecha_solicitud: string;
   avales_minimos: number;
   avales_actuales: number;
+  referadora_nombre: string | null;
+  aval_referadora_hecho: boolean;
+  aval_lider_hecho: boolean;
+  mi_rol: 'referadora' | 'lider' | null;
+  puedo_avalar: boolean;
   ya_avale: boolean;
   es_propio: boolean;
+}
+
+interface GaccStats {
+  score_gacc: number;
+  semaforo: 'verde' | 'amarillo' | 'rojo';
+  estado: string;
+  es_lider: boolean;
 }
 
 export default function Gacc() {
   const { state, refreshTokens, setMunicipio, setGaccName, setGaccCode, setGaccMembers, showErrorModal } = useAppState();
   const [pendingCredits, setPendingCredits] = useState<PendingAvalCredit[]>([]);
   const [loadingAval, setLoadingAval] = useState<string | null>(null); // credito_id being avalado
+  const [gaccStats, setGaccStats] = useState<GaccStats | null>(null);
 
   // Fetch real GACC data from API on mount (non-blocking)
   useEffect(() => {
@@ -82,6 +95,18 @@ export default function Gacc() {
       });
   }, [state.authToken]);
 
+  // Estado del grupo: score_gacc + semáforo de mora (modelo GACC)
+  useEffect(() => {
+    if (!state.authToken) return;
+    apiGet<GaccStats>('/api/gacc/semaforo', {
+      token: state.authToken,
+      refreshToken: state.refreshToken,
+      onTokenRefresh: refreshTokens,
+    })
+      .then((data) => setGaccStats(data))
+      .catch(() => setGaccStats(null));
+  }, [state.authToken]);
+
   const gaccKey = state.municipio || '';
   const members = state.gaccMembers || [];
   const gaccCodeSafe = state.gaccCode || '—';
@@ -120,7 +145,7 @@ export default function Gacc() {
     }
   };
 
-  const creditsToAval = pendingCredits.filter((c) => !c.ya_avale && !c.es_propio);
+  const creditsToAval = pendingCredits.filter((c) => c.mi_rol !== null && !c.es_propio);
   const ownPendingCredit = pendingCredits.find((c) => c.es_propio) ?? null;
 
   return (
@@ -178,10 +203,41 @@ export default function Gacc() {
             </span>
           </div>
           <span className="text-sm font-bold text-slate-800">{state.gaccName}</span>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
             <span className="text-[10px] bg-[#1E3E28] text-white px-2 py-0.5 rounded-full font-bold">
-              Score Promedio: {avgScore}
+              Score del GACC: {gaccStats ? Math.round(gaccStats.score_gacc) : avgScore}
             </span>
+            {gaccStats && (
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1 ${
+                  gaccStats.semaforo === 'verde'
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : gaccStats.semaforo === 'amarillo'
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-rose-100 text-rose-700'
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    gaccStats.semaforo === 'verde'
+                      ? 'bg-emerald-500'
+                      : gaccStats.semaforo === 'amarillo'
+                        ? 'bg-amber-500'
+                        : 'bg-rose-500'
+                  }`}
+                />
+                {gaccStats.semaforo === 'verde'
+                  ? 'Al día'
+                  : gaccStats.semaforo === 'amarillo'
+                    ? 'En mora leve'
+                    : 'En mora grave'}
+              </span>
+            )}
+            {gaccStats?.estado === 'restringido' && (
+              <span className="text-[10px] bg-rose-600 text-white px-2 py-0.5 rounded-full font-bold">
+                Restringido
+              </span>
+            )}
           </div>
         </div>
 
@@ -234,38 +290,62 @@ export default function Gacc() {
             <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
               Créditos pendientes de avalar
             </h4>
-            {creditsToAval.map((credito) => (
-              <div
-                key={credito.id}
-                className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm space-y-2"
-              >
-                <div className="flex justify-between items-start">
-                  <div className="space-y-1">
-                    <p className="text-xs font-bold text-slate-800">
-                      {credito.prestatario_nombre}
-                    </p>
-                    <p className="text-[11px] text-slate-500 font-medium">
-                      ${Number(credito.monto).toLocaleString('es-CO')} COPm
-                    </p>
-                    {credito.descripcion && (
-                      <p className="text-[10px] text-slate-400 italic">
-                        {credito.descripcion}
-                      </p>
-                    )}
-                  </div>
-                  <span className="text-[10px] font-bold text-[#2A5C3C] bg-[#EBF4EE] px-2 py-0.5 rounded-full">
-                    {credito.avales_actuales}/{credito.avales_minimos} avales
-                  </span>
-                </div>
-                <button
-                  onClick={() => handleAvalar(credito.id)}
-                  disabled={loadingAval === credito.id}
-                  className="w-full py-2 rounded-xl text-xs font-extrabold text-white bg-[#2A5C3C] disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all"
+            {creditsToAval.map((credito) => {
+              const etiqueta = credito.mi_rol === 'lider' ? 'Avalar (2/2)' : 'Avalar (1/2)';
+              return (
+                <div
+                  key={credito.id}
+                  className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm space-y-2"
                 >
-                  {loadingAval === credito.id ? 'Avalando…' : 'Avalar crédito'}
-                </button>
-              </div>
-            ))}
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold text-slate-800">
+                        {credito.prestatario_nombre}
+                      </p>
+                      <p className="text-[11px] text-slate-500 font-medium">
+                        ${Number(credito.monto).toLocaleString('es-CO')} COPm
+                      </p>
+                      {credito.descripcion && (
+                        <p className="text-[10px] text-slate-400 italic">
+                          {credito.descripcion}
+                        </p>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-bold text-[#2A5C3C] bg-[#EBF4EE] px-2 py-0.5 rounded-full">
+                      {credito.avales_actuales}/2 avales
+                    </span>
+                  </div>
+                  {/* Circuito: referadora (1/2) → líder social (2/2) */}
+                  <div className="flex items-center gap-3 text-[10px]">
+                    <span className={credito.aval_referadora_hecho ? 'text-emerald-600 font-bold' : 'text-slate-400'}>
+                      {credito.aval_referadora_hecho ? '✓' : '○'} Referadora
+                    </span>
+                    <span className={credito.aval_lider_hecho ? 'text-emerald-600 font-bold' : 'text-slate-400'}>
+                      {credito.aval_lider_hecho ? '✓' : '○'} Líder Social
+                    </span>
+                  </div>
+                  {credito.ya_avale ? (
+                    <div className="w-full py-2 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50 text-center">
+                      ✓ Ya avalaste
+                    </div>
+                  ) : credito.puedo_avalar ? (
+                    <button
+                      onClick={() => handleAvalar(credito.id)}
+                      disabled={loadingAval === credito.id}
+                      className="w-full py-2 rounded-xl text-xs font-extrabold text-white bg-[#2A5C3C] disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all"
+                    >
+                      {loadingAval === credito.id ? 'Avalando…' : etiqueta}
+                    </button>
+                  ) : (
+                    <div className="w-full py-2 rounded-xl text-[10px] font-bold text-slate-500 bg-slate-50 text-center">
+                      {credito.mi_rol === 'lider' && !credito.aval_referadora_hecho
+                        ? 'Esperando el aval de la referadora (1/2)'
+                        : 'En proceso'}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 

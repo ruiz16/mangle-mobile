@@ -29,7 +29,9 @@ export default function PageHeader({ title, subtitle, backTo, right }: PageHeade
           )}
         </div>
       </div>
-      {right && <div className="shrink-0">{right}</div>}
+      <div className="flex items-center gap-2 shrink-0">
+        {right && <div className="shrink-0">{right}</div>}
+      </div>
     </div>
   );
 }

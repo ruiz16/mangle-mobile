@@ -123,6 +123,18 @@ export async function apiPost<T = unknown>(
   return request<T>('POST', path, body, options);
 }
 
+/**
+ * PATCH request with JSON body and optional Bearer token + auto-refresh.
+ * Usado, p. ej., por POST/PATCH /api/notificaciones/[id]/leer.
+ */
+export async function apiPatch<T = unknown>(
+  path: string,
+  body?: unknown,
+  options?: RequestOptions,
+): Promise<T> {
+  return request<T>('PATCH', path, body, options);
+}
+
 // ---------------------------------------------------------------------------
 // Core request
 // ---------------------------------------------------------------------------
@@ -135,7 +147,7 @@ export async function apiPost<T = unknown>(
  * with the new access token.
  */
 async function request<T>(
-  method: 'GET' | 'POST',
+  method: 'GET' | 'POST' | 'PATCH',
   path: string,
   body?: unknown,
   options?: RequestOptions,
@@ -146,6 +158,7 @@ async function request<T>(
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
+
 
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;

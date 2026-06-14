@@ -88,9 +88,12 @@ export default function Register() {
           municipio: localMunicipio,
         }, { token: state.authToken, refreshToken: state.refreshToken, onTokenRefresh: refreshTokens });
       } else if (localCode.trim()) {
-        await apiPost('/api/gacc/unirse', {
+        const unirseRes = await apiPost<{ es_lider?: boolean }>('/api/gacc/unirse', {
           codigo: localCode.trim().toUpperCase(),
         }, { token: state.authToken, refreshToken: state.refreshToken, onTokenRefresh: refreshTokens });
+        if (unirseRes?.es_lider) {
+          showToast('Eres Líder Social', 'Tu correo coincide con el del líder asignado: quedaste como Líder Social del GACC.', 'success');
+        }
       }
     } catch (err: any) {
       const msg = err?.message || err?.detail || 'Error al registrar en el servidor. Verificá tu conexión e intentá de nuevo.';

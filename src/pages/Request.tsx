@@ -9,6 +9,43 @@ import { showToast } from '../components/Toast';
 import { apiGet, apiPost } from '../lib/api';
 import { formatCOP } from '../lib/currency';
 
+// ---------------------------------------------------------------------------
+// Referadora (modelo GACC)
+// ---------------------------------------------------------------------------
+
+/** Miembro elegible como referadora (validado, distinto del solicitante). */
+interface Referadora {
+  participanteId: string; // participantes.id — lo que espera referadora_id
+  nombre: string;
+  score: number;
+}
+
+/** Respuesta cruda de GET /api/gacc/mi-grupo (subset usado aquí). */
+interface MiGrupoResponse {
+  grupo: { id: string; nombre: string; codigo: string; municipio: string } | null;
+  miembro: { id: string; nombre: string; validado: boolean } | null;
+  miembros?: Array<{
+    id: string;
+    participante_id: string;
+    validado_en: string | null;
+    score_efectivo: number | null;
+    participante: { nombre: string; score_reputacion: number } | null;
+  }>;
+}
+
+// Mensajes amables para los códigos de error del backend de créditos.
+const CREDITO_ERROR_MSG: Record<string, string> = {
+  REFERADORA_INVALIDA:     'No puedes elegirte a ti misma como referadora.',
+  REFERADORA_NO_ENCONTRADA:'La referadora seleccionada ya no existe.',
+  REFERADORA_OTRO_GACC:    'La referadora debe pertenecer a tu mismo GACC.',
+  REFERADORA_NO_VALIDADA:  'La referadora aún no fue validada en el GACC.',
+  GACC_RESTRINGIDO:        'Tu GACC está restringido por bajo puntaje colectivo. No puede solicitar nuevos créditos por ahora.',
+  SIN_GACC:                'Debes pertenecer a un GACC para solicitar un crédito.',
+  GACC_NO_VALIDADO:        'Debes ser validada por tu GACC antes de solicitar un crédito.',
+  EDUCACION_INCOMPLETA:    'Completa el módulo educativo antes de solicitar un crédito.',
+  CREDITO_ACTIVO:          'Ya tienes un crédito activo. Termina de pagarlo antes de solicitar uno nuevo.',
+};
+
 interface EventoScore {
   id: string;
   tipo_evento: string;
@@ -64,6 +101,8 @@ export default function Request() {
   const [submitting, setSubmitting] = useState(false);
   const [descripcion, setDescripcion] = useState('');
   const [eventos, setEventos] = useState<EventoScore[]>([]);
+  const [referadoras, setReferadoras] = useState<Referadora[]>([]);
+  const [referadoraId, setReferadoraId] = useState('');
 
   const MOCK_EVENTOS: EventoScore[] = [
     { id: '1', tipo_evento: 'pago_puntual',  delta: 2,  score_nuevo: 72, created_at: '' },
@@ -92,6 +131,27 @@ export default function Request() {
       .catch(() => setEventos(MOCK_EVENTOS));
   }, [state.authToken, state.creditEstado]);
 
+  // Cargar miembros validados del GACC como posibles referadoras (modelo GACC)
+  useEffect(() => {
+    if (!state.authToken) return;
+    apiGet<MiGrupoResponse>('/api/gacc/mi-grupo', {
+      token: state.authToken,
+      refreshToken: state.refreshToken,
+      onTokenRefresh: refreshTokens,
+    })
+      .then((res) => {
+        const lista = (res.miembros ?? [])
+          .filter((m) => m.validado_en && m.participante)
+          .map((m) => ({
+            participanteId: m.participante_id,
+            nombre: m.participante!.nombre,
+            score: m.score_efectivo ?? m.participante!.score_reputacion ?? 0,
+          }));
+        setReferadoras(lista);
+      })
+      .catch(() => setReferadoras([]));
+  }, [state.authToken]);
+
   const handleCategoryClick = (cat: LoanCategory) => {
     setCategory(cat);
   };
@@ -105,12 +165,17 @@ export default function Request() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async () => {
+    if (!referadoraId) {
+      showToast('Elige una referadora', 'Debes elegir una referadora de tu GACC para este crédito.', 'warning');
+      return;
+    }
     setSubmitting(true);
 
     try {
       await apiPost('/api/creditos', {
         monto: state.selectedAmount,
         uso: state.category,
+        referadora_id: referadoraId,
         descripcion: descripcion || undefined,
         plazo_dias: state.totalInstallments * 7,
         numero_cuotas: state.totalInstallments,
@@ -121,10 +186,11 @@ export default function Request() {
       });
 
       submitLoan();
-      showToast('Solicitud Enviada', 'Tu crédito está en revisión.', 'success');
+      showToast('Solicitud Enviada', 'Tu crédito está en revisión. La referadora recibirá tu solicitud de aval.', 'success');
       navigate('/repayment');
     } catch (err: any) {
-      const msg = err?.message ?? err?.detail ?? 'Error al enviar solicitud';
+      const code: string | undefined = err?.code ?? err?.error;
+      const msg = (code && CREDITO_ERROR_MSG[code]) || err?.message || err?.detail || 'Error al enviar solicitud';
       showToast('Error', msg, 'error');
     } finally {
       setSubmitting(false);
@@ -265,6 +331,34 @@ export default function Request() {
               className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-700 placeholder:text-slate-300 resize-none focus:outline-none focus:border-[#2A5C3C] transition"
             />
           </div>
+
+          {/* Referadora (aval 1/2) — modelo GACC */}
+          <div className="space-y-1.5">
+            <span className="text-xs font-bold text-slate-900 block">
+              Elegí tu referadora para este crédito
+            </span>
+            <p className="text-[10px] text-slate-400 leading-relaxed">
+              Una compañera de tu GACC dará el primer aval (1/2). Luego el Líder Social dará el segundo (2/2).
+            </p>
+            {referadoras.length === 0 ? (
+              <p className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                No hay compañeras validadas disponibles en tu GACC todavía.
+              </p>
+            ) : (
+              <select
+                value={referadoraId}
+                onChange={(e) => setReferadoraId(e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-700 focus:outline-none focus:border-[#2A5C3C] transition"
+              >
+                <option value="">Selecciona una referadora…</option>
+                {referadoras.map((r) => (
+                  <option key={r.participanteId} value={r.participanteId}>
+                    {r.nombre} (score {r.score})
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </>)}
       </div>
 
@@ -273,7 +367,7 @@ export default function Request() {
         <div className="pt-3">
           <button
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || !referadoraId}
             className="w-full py-3.5 bg-[#2A5C3C] hover:bg-[#1E3E28] disabled:opacity-50 text-white font-extrabold text-sm rounded-2xl shadow-md transition-all"
           >
             {submitting ? 'Procesando' : 'Enviar Solicitud'}
