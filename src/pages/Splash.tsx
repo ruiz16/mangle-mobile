@@ -1,13 +1,14 @@
 import { useEffect } from 'react';
 import { useLocation } from 'wouter';
-import Lottie from 'lottie-react';
-import splashAnimation from '../assets/lottie/26187f5e-1174-11ee-993b-d7ded5bd38d2.json';
+// import Lottie from 'lottie-react';
+// import splashAnimation from '../assets/lottie/26187f5e-1174-11ee-993b-d7ded5bd38d2.json';
+import logo from '../assets/images/Logo_Mangle.png';
 
 export default function Splash() {
   const [, navigate] = useLocation();
 
   useEffect(() => {
-    const timer = setTimeout(() => navigate('/connect'), 2200);
+    const timer = setTimeout(() => navigate('/connect'), 3000);
     return () => clearTimeout(timer);
   }, [navigate]);
 
@@ -17,13 +18,14 @@ export default function Splash() {
 
         {/* Lottie animation */}
         <div className="flex flex-col items-center gap-4">
-          <div className="w-44 h-44">
-            <Lottie
+          <div className="w-44 h-auto">
+            {/* <Lottie
               animationData={splashAnimation}
               loop
               autoplay
               style={{ width: '100%', height: '100%' }}
-            />
+            /> */}
+            <img src={logo} alt="logo" />
           </div>
           <h2 className="text-xl font-extrabold text-[#1E3E28] leading-tight">Bienvenid@ a MANGLE</h2>
           <p className="text-sm text-slate-500 font-medium">¡Conectando tu billetera!</p>

@@ -55,8 +55,10 @@ export function useAuth() {
   //                  - retry() is called explicitly
   //  lastAddress  = the address that was used in the last attempt.
   //                 If the wallet address changes, we know to re-authenticate.
+  //  isRunning    = true while the async flow is actively executing, preventing
+  //                 concurrent executions before state updates.
   // ──────────────────────────────────────────────────────────────────────────
-  const guard = useRef({ attempted: false, lastAddress: null as string | null });
+  const guard = useRef({ attempted: false, lastAddress: null as string | null, isRunning: false });
 
   // ── Derived flags ─────────────────────────────────────────────────────────
   const isAuthenticated = step === 'authenticated';
@@ -97,8 +99,11 @@ export function useAuth() {
   // triggers the main effect below, but the guard prevents re-entry.
   // ────────────────────────────────────────────────────────────────────────────
   const runAuthFlow = useCallback(async () => {
+    if (guard.current.isRunning) return;
+    
     // 🔒 LOCK: prevent any re-entry until retry() is called
     guard.current.attempted = true;
+    guard.current.isRunning = true;
 
     try {
       // ── Step 1: Validate stored session ──────────────────────────
@@ -253,6 +258,8 @@ export function useAuth() {
       setError(msg);
       setStep('error');
       // guard.attempted stays true — effect won't re-trigger on its own
+    } finally {
+      guard.current.isRunning = false;
     }
   }, [
     state.authToken,
@@ -263,6 +270,7 @@ export function useAuth() {
     refreshTokens,
     clearAuth,
     connectWallet,
+    isMiniPay,
   ]);
 
   // ── Main trigger effect ───────────────────────────────────────────────────
