@@ -71,6 +71,15 @@ const EVENTO_LABELS: Record<string, { label: string; color: string; icon: string
   recalculo_manual: { label: 'Antigüedad',       color: 'text-sky-500',     icon: 'fa-clock-rotate-left' },
 };
 
+function formatDate(dateStr: string): string {
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
+
 function ScoreHistorial({ eventos }: { eventos: EventoScore[] }) {
   if (!eventos.length) return null;
   return (
@@ -83,7 +92,10 @@ function ScoreHistorial({ eventos }: { eventos: EventoScore[] }) {
           <div key={ev.id} className="flex items-center justify-between bg-white rounded-xl px-3 py-2 border border-slate-100">
             <div className="flex items-center gap-2">
               <i className={`fa-solid ${meta.icon} ${meta.color} text-[10px]`} />
-              <span className="text-[10px] text-slate-600 font-medium">{meta.label}</span>
+              <div className="flex flex-col items-start">
+                <span className="text-[10px] text-slate-600 font-medium">{meta.label}</span>
+                <span className="text-[9px] text-slate-400 font-mono">{formatDate(ev.created_at)}</span>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <span className={`text-[10px] font-black ${ev.delta >= 0 ? 'text-emerald-600' : 'text-danger-500'}`}>
@@ -156,7 +168,7 @@ export default function Request() {
     })
       .then((res) => {
         const lista = (res.miembros ?? [])
-          .filter((m) => m.validado_en && m.participante)
+          .filter((m) => m.validado_en && m.participante && m.participante_id !== res.miembro?.id)
           .map((m) => ({
             participanteId: m.participante_id,
             nombre: m.participante!.nombre,

@@ -27,7 +27,7 @@ export function useScore() {
     '/api/participantes/score/historial',
   );
   return {
-    score: data?.historial.score_efectivo ?? 50,
+    score: data?.historial.score_efectivo ?? 0,
     antiguedad: data?.historial.antiguedad_meses ?? 0,
   };
 }

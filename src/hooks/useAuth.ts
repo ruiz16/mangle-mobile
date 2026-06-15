@@ -297,7 +297,8 @@ export function useAuth() {
     // 🛡️ GUARD 3: Already attempted full auth, address hasn't changed
     if (guard.current.attempted) {
       const currentAddr = state.walletAddress || walletAddress;
-      if (!currentAddr || currentAddr === guard.current.lastAddress) return;
+      // Case-insensitive: same guard as the account-switch effect above (line ~109)
+      if (!currentAddr || currentAddr.toLowerCase() === guard.current.lastAddress?.toLowerCase()) return;
       // Address changed → allow re-authentication
       guard.current.attempted = false;
       guard.current.lastAddress = currentAddr;

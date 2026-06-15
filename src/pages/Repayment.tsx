@@ -324,8 +324,10 @@ export default function Repayment() {
         timeout: 60_000, // 60s max wait
       });
 
+      console.log('[Payment] Receipt: ', receipt);
+
       if (receipt.status !== 'success') {
-        throw new Error('La transacción fue revertida en la blockchain');
+        throw new Error('La transacción fue revertida en la blockchain, revisa que tengas suficiente saldo en tu wallet');
       }
 
       // 3. Register payment in backend
@@ -348,7 +350,7 @@ export default function Repayment() {
 
       showToast(
         '¡Pago Exitoso!',
-        `Cuota #${cuota.numero_cuota} pagada en la blockchain. Tx: ${txHash}`,
+        `Cuota #${cuota.numero_cuota} pagada en la blockchain. Tx: ${txHash.slice(0, 6)}}`,
         'success',
       );
     } catch (err: any) {
