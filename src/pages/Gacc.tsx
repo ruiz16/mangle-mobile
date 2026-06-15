@@ -55,7 +55,7 @@ export default function Gacc() {
   const stateColor = isVerde ? '#10b981' : isAmarillo ? '#f59e0b' : '#ef4444';
   const stateBg = isVerde ? '#d1fae5' : isAmarillo ? '#fef3c7' : '#fee2e2';
   const stateText = isVerde ? '#064e3b' : isAmarillo ? '#78350f' : '#7f1d1d';
-  const stateLabel = isVerde ? 'Verde - Al día' : isAmarillo ? 'Amarillo - Mora leve' : 'Rojo - Mora grave';
+  const stateLabel = isVerde ? 'Al día' : isAmarillo ? 'Mora leve' : 'Mora grave';
   const stateMessage = isVerde 
     ? 'Tu grupo está al día.\n¡Juntas construyen confianza!'
     : isAmarillo
@@ -140,10 +140,10 @@ export default function Gacc() {
                   <div className="relative w-52 h-40 flex flex-col items-center">
                     <svg viewBox="0 0 200 160" className="absolute inset-0 w-full h-full overflow-visible">
                       {/* Outer arc */}
-                      <path id="semaforo-arc" d="M 35 150 A 82 82 0 1 1 165 150" fill="none" stroke="#fef08a" strokeWidth="18" strokeLinecap="round" />
+                      <path id="semaforo-arc" d="M 35 150 A 82 82 0 1 1 165 150" fill="none" stroke="#fef08a" strokeWidth="32" strokeLinecap="butt" />
                       
                       {/* Inner Circle */}
-                      <circle cx="100" cy="100" r="52" fill={stateBg} stroke={stateColor} strokeWidth="8" />
+                      <circle cx="100" cy="100" r="52" fill={stateBg} stroke={stateColor} strokeWidth="24" />
                       
                       {/* Text along arc */}
                       <text className="text-[10px] font-black uppercase tracking-wider" fill="#475569">
