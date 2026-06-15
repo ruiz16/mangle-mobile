@@ -43,6 +43,16 @@ const ERC20_ABI = [
     ],
     outputs: [{ name: '', type: 'bool' }],
   },
+  {
+    name: 'allowance',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' },
+    ],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
 ] as const;
 
 const LENDING_POOL_ABI = [
@@ -335,22 +345,50 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
     const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
     const currentFrom = (accounts[0] ?? from) as Address;
 
-    // 1. approve(pool, amount)
-    const approveData = encodeFunctionData({
-      abi: ERC20_ABI,
-      functionName: 'approve',
-      args: [poolAddress, amountWei],
-    });
-    const approveTx = await provider.request({
-      method: 'eth_sendTransaction',
-      params: [{ from: currentFrom, to: copmAddress, data: approveData }],
-    }) as `0x${string}`;
-
-    // 2. Esperar a que el approve se mine
     const publicClient = createPublicClient({ chain: ACTIVE_CHAIN, transport: http(RPC_URL) });
-    await publicClient.waitForTransactionReceipt({ hash: approveTx, timeout: 60_000 });
 
-    // 3. repay(creditId, amount)
+    // 1. Aprobar solo si el allowance actual no alcanza (evita tx innecesaria).
+    const currentAllowance = await publicClient.readContract({
+      address: copmAddress,
+      abi: ERC20_ABI,
+      functionName: 'allowance',
+      args: [currentFrom, poolAddress],
+    }) as bigint;
+
+    if (currentAllowance < amountWei) {
+      const approveData = encodeFunctionData({
+        abi: ERC20_ABI,
+        functionName: 'approve',
+        args: [poolAddress, amountWei],
+      });
+      const approveTx = await provider.request({
+        method: 'eth_sendTransaction',
+        params: [{ from: currentFrom, to: copmAddress, data: approveData }],
+      }) as `0x${string}`;
+
+      // Confirmar que el approve quedó minado Y exitoso (waitForTransactionReceipt
+      // NO lanza si revirtió: devuelve status 'reverted').
+      const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveTx, timeout: 60_000 });
+      if (approveReceipt.status !== 'success') {
+        throw new Error('La aprobación de COPm falló. Reintenta el pago.');
+      }
+
+      // Esperar a que el allowance se refleje on-chain ANTES del repay para
+      // eliminar el race con la simulación de la wallet.
+      for (let i = 0; i < 15; i++) {
+        const a = await publicClient.readContract({
+          address: copmAddress,
+          abi: ERC20_ABI,
+          functionName: 'allowance',
+          args: [currentFrom, poolAddress],
+        }) as bigint;
+        if (a >= amountWei) break;
+        if (i === 14) throw new Error('El permiso (allowance) no se reflejó a tiempo. Reintenta el pago.');
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+    }
+
+    // 2. repay(creditId, amount)
     const repayData = encodeFunctionData({
       abi: LENDING_POOL_ABI,
       functionName: 'repay',
