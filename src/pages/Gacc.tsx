@@ -1,115 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAppState } from '../context/AppState';
 import MemberCard from '../components/MemberCard';
 import PageHeader from '../components/PageHeader';
 import { showToast } from '../components/Toast';
-import { apiGet, apiPost } from '../lib/api';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface PendingAvalCredit {
-  id: string;
-  prestatario_id: string;
-  prestatario_nombre: string;
-  monto: string;
-  descripcion: string | null;
-  fecha_solicitud: string;
-  avales_minimos: number;
-  avales_actuales: number;
-  referadora_nombre: string | null;
-  aval_referadora_hecho: boolean;
-  aval_lider_hecho: boolean;
-  mi_rol: 'referadora' | 'lider' | null;
-  puedo_avalar: boolean;
-  ya_avale: boolean;
-  es_propio: boolean;
-}
-
-interface GaccStats {
-  score_gacc: number;
-  semaforo: 'verde' | 'amarillo' | 'rojo';
-  estado: string;
-  es_lider: boolean;
-}
+import { useMiGrupo, usePendientesAval, useGaccSemaforo, useAvalar } from '../queries/gacc';
 
 export default function Gacc() {
-  const { state, refreshTokens, setMunicipio, setGaccName, setGaccCode, setGaccMembers, showErrorModal } = useAppState();
-  const [pendingCredits, setPendingCredits] = useState<PendingAvalCredit[]>([]);
+  const { state, showErrorModal } = useAppState();
   const [loadingAval, setLoadingAval] = useState<string | null>(null); // credito_id being avalado
-  const [gaccStats, setGaccStats] = useState<GaccStats | null>(null);
 
-  // Fetch real GACC data from API on mount (non-blocking)
-  useEffect(() => {
-    if (!state.authToken) return;
-    apiGet<{
-      grupo: { id: number; nombre: string; codigo: string; municipio: string } | null;
-      miembro: { id: number } | null;
-      miembros: Array<{
-        id: number;
-        participante_id: number;
-        validado_en: string | null;
-        participante: { nombre: string; score_reputacion: number } | null;
-      }>;
-    }>('/api/gacc/mi-grupo', { token: state.authToken, refreshToken: state.refreshToken, onTokenRefresh: refreshTokens })
-      .then((data) => {
-        if (data?.grupo) {
-          setGaccName(data.grupo.nombre);
-          setGaccCode(data.grupo.codigo);
-          if (data.grupo.municipio) setMunicipio(data.grupo.municipio as 'guapi' | 'timbiqui');
-        }
-        if (data?.miembros) {
-          const selfId = data.miembro?.id ?? 0;
-          const members = data.miembros.map((m) => ({
-            id: String(m.id),
-            participanteId: String(m.participante_id),
-            name: m.participante?.nombre ?? '',
-            role: '',
-            status: m.validado_en ? 'Al día' as const : 'En Alerta' as const,
-            score: m.participante?.score_reputacion ?? 50,
-            validado: !!m.validado_en,
-            self: m.id === selfId,
-          }));
-          setGaccMembers(members);
-        }
-      })
-      .catch(() => {
-        // API not available — use local state as fallback
-      });
-  }, [state.authToken, setMunicipio, setGaccName, setGaccCode, setGaccMembers]);
+  // Server-state vía TanStack Query (única fuente de verdad).
+  const { grupo } = useMiGrupo();
+  const { data: pendientesData } = usePendientesAval();
+  const { data: gaccStats } = useGaccSemaforo();
+  const avalar = useAvalar();
+  const pendingCredits = pendientesData?.creditos ?? [];
 
-  // Fetch pending avales
-  useEffect(() => {
-    if (!state.authToken) return;
-    apiGet<{ creditos: PendingAvalCredit[] }>('/api/gacc/pendientes-de-aval', {
-      token: state.authToken,
-      refreshToken: state.refreshToken,
-      onTokenRefresh: refreshTokens,
-    })
-      .then((data) => {
-        setPendingCredits(data?.creditos ?? []);
-      })
-      .catch(() => {
-        setPendingCredits([]);
-      });
-  }, [state.authToken]);
-
-  // Estado del grupo: score_gacc + semáforo de mora (modelo GACC)
-  useEffect(() => {
-    if (!state.authToken) return;
-    apiGet<GaccStats>('/api/gacc/semaforo', {
-      token: state.authToken,
-      refreshToken: state.refreshToken,
-      onTokenRefresh: refreshTokens,
-    })
-      .then((data) => setGaccStats(data))
-      .catch(() => setGaccStats(null));
-  }, [state.authToken]);
-
-  const gaccKey = state.municipio || '';
-  const members = state.gaccMembers || [];
-  const gaccCodeSafe = state.gaccCode || '—';
+  const gaccKey = grupo?.municipio || '';
+  const members = grupo?.members ?? [];
+  const gaccCodeSafe = grupo?.codigo || '—';
   const avgScore =
     members.length > 0
       ? Math.round(members.reduce((sum, m) => sum + m.score, 0) / members.length)
@@ -123,25 +32,14 @@ export default function Gacc() {
   const handleAvalar = async (creditoId: string) => {
     setLoadingAval(creditoId);
     try {
-      await apiPost('/api/avales', { credito_id: creditoId }, { token: state.authToken, refreshToken: state.refreshToken, onTokenRefresh: refreshTokens });
+      await avalar.mutateAsync(creditoId);
+      // La invalidación de ['gacc-pendientes-aval'] refresca la lista sola.
       showToast('Aval Registrado', 'Has avalado este crédito con éxito.', 'success');
-      // Remove from pending list and refresh
-      setPendingCredits((prev) => prev.filter((c) => c.id !== creditoId));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al avalar el crédito';
       showErrorModal('Error al avalar', msg);
     } finally {
       setLoadingAval(null);
-      // Refresh pending list
-      try {
-        const data = await apiGet<{ creditos: PendingAvalCredit[] }>(
-          '/api/gacc/pendientes-de-aval',
-          { token: state.authToken, refreshToken: state.refreshToken, onTokenRefresh: refreshTokens },
-        );
-        setPendingCredits(data?.creditos ?? []);
-      } catch {
-        // silent
-      }
     }
   };
 
@@ -155,7 +53,7 @@ export default function Gacc() {
           title="Mi Grupo GACC"
           subtitle="Ver y administrar tu grupo GACC."
           right={
-            <span className="text-[9px] font-bold bg-[#2A5C3C] text-white px-2 py-0.5 rounded-full">
+            <span className="text-[9px] font-bold bg-primary text-white px-2 py-0.5 rounded-full">
               {gaccKey.charAt(0).toUpperCase() + gaccKey.slice(1)}
             </span>
           }
@@ -163,11 +61,11 @@ export default function Gacc() {
 
         {/* Community Alert */}
         {state.nodeAlert && (
-          <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex gap-3 items-start">
-            <i className="fa-solid fa-circle-exclamation text-rose-500 mt-0.5 text-sm shrink-0" />
+          <div className="bg-danger-50 border border-danger-200 rounded-2xl p-4 flex gap-3 items-start">
+            <i className="fa-solid fa-circle-exclamation text-danger-500 mt-0.5 text-sm shrink-0" />
             <div>
-              <p className="text-xs font-bold text-rose-800">Garantía Social Comprometida</p>
-              <p className="text-[10px] text-rose-700 mt-0.5 leading-relaxed">
+              <p className="text-xs font-bold text-danger-800">Garantía Social Comprometida</p>
+              <p className="text-[10px] text-danger-700 mt-0.5 leading-relaxed">
                 Tu compañera <span className="font-bold">{state.alertPartnerName}</span> presenta retraso. Tu red tiene 48h para apoyarla antes de suspender el nodo.
               </p>
             </div>
@@ -181,7 +79,7 @@ export default function Gacc() {
               Código de Invitación (Privado)
             </span>
             <span
-              className="text-[9px] text-[#2A5C3C] underline cursor-pointer font-bold"
+              className="text-[9px] text-primary underline cursor-pointer font-bold"
               onClick={handleCopyCode}
             >
               Copiar
@@ -202,9 +100,9 @@ export default function Gacc() {
               {members.length} miembro{members.length !== 1 ? 's' : ''}
             </span>
           </div>
-          <span className="text-sm font-bold text-slate-800">{state.gaccName}</span>
-          <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-[10px] bg-[#1E3E28] text-white px-2 py-0.5 rounded-full font-bold">
+          <span className="text-sm font-bold text-slate-800">{grupo?.nombre}</span>
+          <div className="flex flex-wrap gap-2 items-center justify-between">
+            <span className="text-[10px] bg-ink text-white px-2 py-0.5 rounded-full font-bold">
               Score del GACC: {gaccStats ? Math.round(gaccStats.score_gacc) : avgScore}
             </span>
             {gaccStats && (
@@ -214,7 +112,7 @@ export default function Gacc() {
                     ? 'bg-emerald-100 text-emerald-700'
                     : gaccStats.semaforo === 'amarillo'
                       ? 'bg-amber-100 text-amber-700'
-                      : 'bg-rose-100 text-rose-700'
+                      : 'bg-danger-100 text-danger-700'
                 }`}
               >
                 <span
@@ -223,7 +121,7 @@ export default function Gacc() {
                       ? 'bg-emerald-500'
                       : gaccStats.semaforo === 'amarillo'
                         ? 'bg-amber-500'
-                        : 'bg-rose-500'
+                        : 'bg-danger-500'
                   }`}
                 />
                 {gaccStats.semaforo === 'verde'
@@ -234,7 +132,7 @@ export default function Gacc() {
               </span>
             )}
             {gaccStats?.estado === 'restringido' && (
-              <span className="text-[10px] bg-rose-600 text-white px-2 py-0.5 rounded-full font-bold">
+              <span className="text-[10px] bg-danger-600 text-white px-2 py-0.5 rounded-full font-bold">
                 Restringido
               </span>
             )}
@@ -247,11 +145,11 @@ export default function Gacc() {
             <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
               Mi solicitud de crédito
             </h4>
-            <div className="bg-[#EBF4EE] p-3 rounded-2xl border border-[#2A5C3C]/20 shadow-sm space-y-2">
+            <div className="bg-surface p-3 rounded-2xl border border-primary/20 shadow-sm space-y-2">
               <div className="flex justify-between items-start">
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] font-extrabold text-[#2A5C3C] bg-white px-2 py-0.5 rounded-full border border-[#2A5C3C]/30">
+                    <span className="text-[9px] font-extrabold text-primary bg-white px-2 py-0.5 rounded-full border border-primary/30">
                       Tu crédito
                     </span>
                   </div>
@@ -263,19 +161,25 @@ export default function Gacc() {
                       {ownPendingCredit.descripcion}
                     </p>
                   )}
+                  {ownPendingCredit.referadora_nombre && (
+                    <p className="text-[10px] text-slate-500 inline-flex items-center gap-1">
+                      <i className="fa-solid fa-handshake-angle text-primary text-[11px]" />
+                      <span className="font-bold">{ownPendingCredit.referadora_nombre}</span>
+                    </p>
+                  )}
                 </div>
-                <span className="text-[10px] font-bold text-[#2A5C3C] bg-white px-2 py-0.5 rounded-full border border-[#2A5C3C]/30">
+                <span className="text-[10px] font-bold text-primary bg-white px-2 py-0.5 rounded-full border border-primary/30">
                   {ownPendingCredit.avales_actuales}/{ownPendingCredit.avales_minimos} avales
                 </span>
               </div>
               {/* Progress bar */}
               <div className="w-full bg-white/60 rounded-full h-1.5 overflow-hidden">
                 <div
-                  className="bg-[#2A5C3C] h-1.5 rounded-full transition-all"
+                  className="bg-primary h-1.5 rounded-full transition-all"
                   style={{ width: `${Math.min(100, (ownPendingCredit.avales_actuales / ownPendingCredit.avales_minimos) * 100)}%` }}
                 />
               </div>
-              <p className="text-[9px] text-[#2A5C3C] font-medium text-center">
+              <p className="text-[9px] text-primary font-medium text-center">
                 {ownPendingCredit.avales_actuales >= ownPendingCredit.avales_minimos
                   ? 'Tu crédito fue avalado y será procesado pronto.'
                   : `Esperando avales de tus compañeras (${ownPendingCredit.avales_minimos - ownPendingCredit.avales_actuales} faltante${ownPendingCredit.avales_minimos - ownPendingCredit.avales_actuales !== 1 ? 's' : ''})`}
@@ -311,7 +215,7 @@ export default function Gacc() {
                         </p>
                       )}
                     </div>
-                    <span className="text-[10px] font-bold text-[#2A5C3C] bg-[#EBF4EE] px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-bold text-primary bg-surface px-2 py-0.5 rounded-full">
                       {credito.avales_actuales}/2 avales
                     </span>
                   </div>
@@ -319,6 +223,9 @@ export default function Gacc() {
                   <div className="flex items-center gap-3 text-[10px]">
                     <span className={credito.aval_referadora_hecho ? 'text-emerald-600 font-bold' : 'text-slate-400'}>
                       {credito.aval_referadora_hecho ? '✓' : '○'} Referadora
+                      {credito.referadora_nombre && (
+                        <span className="font-normal text-slate-500"> ({credito.referadora_nombre})</span>
+                      )}
                     </span>
                     <span className={credito.aval_lider_hecho ? 'text-emerald-600 font-bold' : 'text-slate-400'}>
                       {credito.aval_lider_hecho ? '✓' : '○'} Líder Social
@@ -332,7 +239,7 @@ export default function Gacc() {
                     <button
                       onClick={() => handleAvalar(credito.id)}
                       disabled={loadingAval === credito.id}
-                      className="w-full py-2 rounded-xl text-xs font-extrabold text-white bg-[#2A5C3C] disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all"
+                      className="w-full py-2 rounded-xl text-xs font-extrabold text-white bg-primary disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all"
                     >
                       {loadingAval === credito.id ? 'Avalando…' : etiqueta}
                     </button>

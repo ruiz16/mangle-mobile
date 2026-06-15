@@ -43,7 +43,7 @@ export function createSiweMessage(params: {
   const issuedAt = new Date().toISOString();
 
   return [
-    `${domain} wants you to sign in with your Ethereum account:`,
+    `${domain} solicita tu firma:`,
     params.address,
     '',
     'Bienvenida a MANGLE. Al firmar este mensaje aceptas los términos y condiciones de la plataforma de microcréditos.',

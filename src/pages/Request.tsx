@@ -6,8 +6,11 @@ import PageHeader from '../components/PageHeader';
 import { LOAN_CATEGORIES } from '../types';
 import type { LoanCategory } from '../types';
 import { showToast } from '../components/Toast';
-import { apiGet, apiPost } from '../lib/api';
+import { apiGet } from '../lib/api';
 import { formatCOP } from '../lib/currency';
+import { useCreditoActivo, useSolicitarCredito } from '../queries/creditos';
+import { useCuotas, cuotasPagadas } from '../queries/cuotas';
+import { useEduProgreso } from '../queries/educacion';
 
 // ---------------------------------------------------------------------------
 // Referadora (modelo GACC)
@@ -63,8 +66,8 @@ interface HistorialResponse {
 
 const EVENTO_LABELS: Record<string, { label: string; color: string; icon: string }> = {
   pago_puntual:     { label: 'Pago puntual',     color: 'text-emerald-600', icon: 'fa-circle-check' },
-  pago_atrasado:    { label: 'Pago atrasado',    color: 'text-rose-500',    icon: 'fa-circle-exclamation' },
-  default:          { label: 'Default',          color: 'text-rose-700',    icon: 'fa-triangle-exclamation' },
+  pago_atrasado:    { label: 'Pago atrasado',    color: 'text-danger-500',    icon: 'fa-circle-exclamation' },
+  default:          { label: 'Default',          color: 'text-danger-700',    icon: 'fa-triangle-exclamation' },
   recalculo_manual: { label: 'Antigüedad',       color: 'text-sky-500',     icon: 'fa-clock-rotate-left' },
 };
 
@@ -83,7 +86,7 @@ function ScoreHistorial({ eventos }: { eventos: EventoScore[] }) {
               <span className="text-[10px] text-slate-600 font-medium">{meta.label}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className={`text-[10px] font-black ${ev.delta >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+              <span className={`text-[10px] font-black ${ev.delta >= 0 ? 'text-emerald-600' : 'text-danger-500'}`}>
                 {sign}{ev.delta} pts
               </span>
               <span className="text-[9px] text-slate-400 font-mono">{ev.score_nuevo}</span>
@@ -96,13 +99,25 @@ function ScoreHistorial({ eventos }: { eventos: EventoScore[] }) {
 }
 
 export default function Request() {
-  const { state, setSelectedAmount, setCategory, setTotalInstallments, submitLoan, refreshTokens } = useAppState();
+  const { state, refreshTokens } = useAppState();
   const [, navigate] = useLocation();
   const [submitting, setSubmitting] = useState(false);
   const [descripcion, setDescripcion] = useState('');
   const [eventos, setEventos] = useState<EventoScore[]>([]);
   const [referadoras, setReferadoras] = useState<Referadora[]>([]);
   const [referadoraId, setReferadoraId] = useState('');
+
+  // Inputs del formulario — estado local (no se persiste; sólo viven hasta enviar).
+  const [selectedAmount, setSelectedAmount] = useState(100000);
+  const [category, setCategory] = useState<LoanCategory>('insumos');
+  const [totalInstallments, setTotalInstallments] = useState(4);
+
+  // Estado real del crédito desde el backend (única fuente de verdad).
+  const { credito, estado: creditEstado } = useCreditoActivo();
+  const { progress: eduProgress, isLoading: eduLoading } = useEduProgreso();
+  const { data: cuotasData } = useCuotas();
+  const installmentsPaid = credito ? cuotasPagadas(cuotasData?.cuotas ?? [], credito.id) : 0;
+  const solicitar = useSolicitarCredito();
 
   const MOCK_EVENTOS: EventoScore[] = [
     { id: '1', tipo_evento: 'pago_puntual',  delta: 2,  score_nuevo: 72, created_at: '' },
@@ -112,7 +127,7 @@ export default function Request() {
   ];
 
   useEffect(() => {
-    if (state.creditEstado !== 'pendiente' && state.creditEstado !== 'desembolsado') return;
+    if (creditEstado !== 'pendiente' && creditEstado !== 'desembolsado') return;
 
     if (!state.authToken) {
       setEventos(MOCK_EVENTOS);
@@ -129,7 +144,7 @@ export default function Request() {
         setEventos(evs.length ? evs : MOCK_EVENTOS);
       })
       .catch(() => setEventos(MOCK_EVENTOS));
-  }, [state.authToken, state.creditEstado]);
+  }, [state.authToken, creditEstado]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cargar miembros validados del GACC como posibles referadoras (modelo GACC)
   useEffect(() => {
@@ -156,13 +171,15 @@ export default function Request() {
     setCategory(cat);
   };
 
-  // Redirect if education not complete
+  const moneda = credito?.moneda ?? 'COPm';
+
+  // Redirect if education not complete (espera a que cargue el progreso real)
   useEffect(() => {
-    if (state.eduProgress < 100) {
+    if (!eduLoading && eduProgress < 100) {
       showToast('Educación Incompleta', 'Completa el módulo educativo primero.');
       navigate('/education');
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [eduLoading, eduProgress]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async () => {
     if (!referadoraId) {
@@ -172,20 +189,16 @@ export default function Request() {
     setSubmitting(true);
 
     try {
-      await apiPost('/api/creditos', {
-        monto: state.selectedAmount,
-        uso: state.category,
+      await solicitar.mutateAsync({
+        monto: selectedAmount,
+        uso: category,
         referadora_id: referadoraId,
         descripcion: descripcion || undefined,
-        plazo_dias: state.totalInstallments * 7,
-        numero_cuotas: state.totalInstallments,
-      }, {
-        token: state.authToken,
-        refreshToken: state.refreshToken,
-        onTokenRefresh: refreshTokens,
+        plazo_dias: totalInstallments * 7,
+        numero_cuotas: totalInstallments,
       });
 
-      submitLoan();
+      // La invalidación de ['creditos'] refresca el estado solo — sin sync manual.
       showToast('Solicitud Enviada', 'Tu crédito está en revisión. La referadora recibirá tu solicitud de aval.', 'success');
       navigate('/repayment');
     } catch (err: any) {
@@ -207,11 +220,11 @@ export default function Request() {
 
         {/* Node alert */}
         {state.nodeAlert && (
-          <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex gap-3 items-start">
-            <i className="fa-solid fa-circle-exclamation text-rose-500 mt-0.5 text-sm shrink-0" />
+          <div className="bg-danger-50 border border-danger-200 rounded-2xl p-4 flex gap-3 items-start">
+            <i className="fa-solid fa-circle-exclamation text-danger-500 mt-0.5 text-sm shrink-0" />
             <div>
-              <p className="text-xs font-bold text-rose-800">Alerta en tu red</p>
-              <p className="text-[10px] text-rose-700 mt-0.5 leading-relaxed">
+              <p className="text-xs font-bold text-danger-800">Alerta en tu red</p>
+              <p className="text-[10px] text-danger-700 mt-0.5 leading-relaxed">
                 Tu compañera <span className="font-bold">{state.alertPartnerName}</span> tiene pagos atrasados. Tu red tiene 48h para regularizar antes de que se suspenda el nodo.
               </p>
             </div>
@@ -219,7 +232,7 @@ export default function Request() {
         )}
 
         {/* Active credit — replace form */}
-        {state.creditEstado === 'pendiente' && (
+        {creditEstado === 'pendiente' && (
           <div className="space-y-3">
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3 items-start">
               <i className="fa-solid fa-clock text-amber-500 mt-0.5 text-sm shrink-0" />
@@ -234,12 +247,12 @@ export default function Request() {
             <div className="grid grid-cols-2 gap-2">
               <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
                 <p className="text-[9px] text-slate-400 uppercase tracking-wide">Monto solicitado</p>
-                <p className="text-base font-black text-slate-800 mt-1">{formatCOP(state.selectedAmount)}</p>
-                <p className="text-[9px] text-slate-400 mt-0.5">{state.moneda}</p>
+                <p className="text-base font-black text-slate-800 mt-1">{formatCOP(Number(credito?.monto ?? 0))}</p>
+                <p className="text-[9px] text-slate-400 mt-0.5">{moneda}</p>
               </div>
               <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
                 <p className="text-[9px] text-slate-400 uppercase tracking-wide">Plazo</p>
-                <p className="text-base font-black text-slate-800 mt-1">{state.totalInstallments}</p>
+                <p className="text-base font-black text-slate-800 mt-1">{credito?.numero_cuotas ?? 0}</p>
                 <p className="text-[9px] text-slate-400 mt-0.5">semanas</p>
               </div>
             </div>
@@ -247,7 +260,7 @@ export default function Request() {
           </div>
         )}
 
-        {state.creditEstado === 'desembolsado' && (
+        {creditEstado === 'desembolsado' && (
           <div className="space-y-3">
             <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex gap-3 items-start">
               <i className="fa-solid fa-circle-check text-emerald-500 mt-0.5 text-sm shrink-0" />
@@ -262,17 +275,17 @@ export default function Request() {
             <div className="grid grid-cols-3 gap-2">
               <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
                 <p className="text-[9px] text-slate-400 uppercase tracking-wide">Monto</p>
-                <p className="text-base font-black text-slate-800 mt-1">{formatCOP(state.selectedAmount)}</p>
-                <p className="text-[9px] text-slate-400 mt-0.5">{state.moneda}</p>
+                <p className="text-base font-black text-slate-800 mt-1">{formatCOP(Number(credito?.monto ?? 0))}</p>
+                <p className="text-[9px] text-slate-400 mt-0.5">{moneda}</p>
               </div>
               <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
                 <p className="text-[9px] text-slate-400 uppercase tracking-wide">Pagadas</p>
-                <p className="text-base font-black text-slate-800 mt-1">{state.installmentsPaid} / {state.totalInstallments}</p>
+                <p className="text-base font-black text-slate-800 mt-1">{installmentsPaid} / {credito?.numero_cuotas ?? 0}</p>
                 <p className="text-[9px] text-slate-400 mt-0.5">cuotas</p>
               </div>
               <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
                 <p className="text-[9px] text-slate-400 uppercase tracking-wide">Restantes</p>
-                <p className="text-base font-black text-emerald-600 mt-1">{state.totalInstallments - state.installmentsPaid}</p>
+                <p className="text-base font-black text-emerald-600 mt-1">{(credito?.numero_cuotas ?? 0) - installmentsPaid}</p>
                 <p className="text-[9px] text-slate-400 mt-0.5">cuotas</p>
               </div>
             </div>
@@ -281,11 +294,11 @@ export default function Request() {
         )}
 
         {/* Form — only when no active credit */}
-        {(state.creditEstado === 'ninguno' || state.creditEstado === 'pagado') && (<>
+        {(creditEstado === 'ninguno' || creditEstado === 'pagado') && (<>
           <AmountSlider
-            value={state.selectedAmount}
+            value={selectedAmount}
             onChange={setSelectedAmount}
-            installments={state.totalInstallments}
+            installments={totalInstallments}
             onInstallmentsChange={setTotalInstallments}
           />
 
@@ -294,17 +307,17 @@ export default function Request() {
             <span className="text-xs font-bold text-slate-900 block">¿En qué usarás tu crédito?</span>
             <div className="grid grid-cols-3 gap-2.5">
               {LOAN_CATEGORIES.map((cat) => {
-                const isActive = state.category === cat.key;
+                const isActive = category === cat.key;
                 return (
                   <button
                     key={cat.key}
                     onClick={() => handleCategoryClick(cat.key)}
                     className={`p-3 rounded-xl text-center flex items-center justify-center gap-1.5 transition ${
-                      isActive ? 'border-2 border-[#2A5C3C]' : 'border border-slate-100 opacity-60'
+                      isActive ? 'border-2 border-primary' : 'border border-slate-100 opacity-60'
                     } bg-white`}
                   >
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm ${
-                      isActive ? 'bg-[#EBF4EE] text-[#2A5C3C]' : 'bg-slate-50 text-slate-500'
+                      isActive ? 'bg-surface text-primary' : 'bg-slate-50 text-slate-500'
                     }`}>
                       <i className={`fa-solid fa-${cat.icon}`} />
                     </div>
@@ -328,7 +341,7 @@ export default function Request() {
               maxLength={500}
               rows={3}
               placeholder="Describe tu solicitud. (opcional)"
-              className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-700 placeholder:text-slate-300 resize-none focus:outline-none focus:border-[#2A5C3C] transition"
+              className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-700 placeholder:text-slate-300 resize-none focus:outline-none focus:border-primary transition"
             />
           </div>
 
@@ -342,13 +355,13 @@ export default function Request() {
             </p>
             {referadoras.length === 0 ? (
               <p className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                No hay compañeras validadas disponibles en tu GACC todavía.
+                Cargando...
               </p>
             ) : (
               <select
                 value={referadoraId}
                 onChange={(e) => setReferadoraId(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-700 focus:outline-none focus:border-[#2A5C3C] transition"
+                className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-700 focus:outline-none focus:border-primary transition"
               >
                 <option value="">Selecciona una referadora…</option>
                 {referadoras.map((r) => (
@@ -363,12 +376,12 @@ export default function Request() {
       </div>
 
       {/* Submit — only when form is visible */}
-      {(state.creditEstado === 'ninguno' || state.creditEstado === 'pagado') && (
+      {(creditEstado === 'ninguno' || creditEstado === 'pagado') && (
         <div className="pt-3">
           <button
             onClick={handleSubmit}
             disabled={submitting || !referadoraId}
-            className="w-full py-3.5 bg-[#2A5C3C] hover:bg-[#1E3E28] disabled:opacity-50 text-white font-extrabold text-sm rounded-2xl shadow-md transition-all"
+            className="w-full py-3.5 bg-primary hover:bg-ink disabled:opacity-50 text-white font-extrabold text-sm rounded-2xl shadow-md transition-all"
           >
             {submitting ? 'Procesando' : 'Enviar Solicitud'}
           </button>

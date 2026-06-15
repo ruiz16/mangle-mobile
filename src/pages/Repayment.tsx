@@ -1,17 +1,21 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'wouter';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../queries/client';
+import { useCuotas, usePagoConfig } from '../queries/cuotas';
+import { useCreditoActivo } from '../queries/creditos';
 import { createPublicClient, http, keccak256, stringToHex } from 'viem';
 import { useAppState } from '../context/AppState';
 import { useMiniPay } from '../hooks/useMiniPay';
 import PageHeader from '../components/PageHeader';
 import { showToast } from '../components/Toast';
 import { getActiveChain, getActiveRpc } from '../lib/network';
-import { apiGet, apiPost, ApiRequestError } from '../lib/api';
+import { apiPost, ApiRequestError } from '../lib/api';
 import { formatCopm } from '../lib/currency';
 import Lottie from 'lottie-react';
 import splashAnimation from '../assets/lottie/26187f5e-1174-11ee-993b-d7ded5bd38d2.json';
 import walletAnimation from '../assets/lottie/16a8e6c0-117a-11ee-a9de-ab7b4c8f4c79.json';
-import type { ApiCuota, PagoConfig } from '../types';
+import type { ApiCuota } from '../types';
 import type { Address } from 'viem';
 
 const PAGO_ERROR_MESSAGES: Record<string, string> = {
@@ -55,6 +59,7 @@ function daysUntil(dateStr: string): number {
 interface CuotaGrouped {
   credito_id: string;
   descripcion: string | null;
+  referadoraNombre: string | null;
   monto: string;
   totalCuotas: number;
   cuotas: ApiCuota[];
@@ -68,6 +73,7 @@ function groupByCredit(cuotas: ApiCuota[]): CuotaGrouped[] {
       map.set(c.credito_id, {
         credito_id: c.credito_id,
         descripcion: c.credito_descripcion,
+        referadoraNombre: c.credito_referadora_nombre,
         monto: c.credito_monto,
         totalCuotas: c.total_cuotas,
         cuotas: [],
@@ -109,7 +115,7 @@ function CreditGroup({ group, payingCuotaId, onPay, isHistory }: CreditGroupProp
         className={`text-white p-4 rounded-2xl shadow-sm space-y-3 relative overflow-hidden ${
           isHistory
             ? 'bg-gradient-to-br from-slate-500 to-slate-700'
-            : 'bg-gradient-to-br from-[#2A5C3C] to-[#1E3E28]'
+            : 'bg-gradient-to-br from-primary to-ink'
         }`}
       >
         <div className="absolute -right-8 -bottom-8 w-24 h-24 rounded-full bg-white/5" />
@@ -132,9 +138,17 @@ function CreditGroup({ group, payingCuotaId, onPay, isHistory }: CreditGroupProp
               })()}
             </span>
           </div>
-          <span className="text-[9px] bg-white/20 px-2 py-0.5 rounded font-mono">
-            {headerLabel()}
-          </span>
+          <div className="flex flex-col items-end justify-between self-stretch text-right">
+            <span className="text-[9px] bg-white/20 px-2 py-0.5 rounded font-mono">
+              {headerLabel()}
+            </span>
+            {group.referadoraNombre && (
+              <span className={`text-[9px] inline-flex items-center gap-1 ${isHistory ? 'text-slate-300' : 'text-emerald-200'}`}>
+                <i className="fa-solid fa-handshake-angle text-[10px]" />
+                <span className="font-bold">{group.referadoraNombre}</span>
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -174,7 +188,7 @@ function CreditGroup({ group, payingCuotaId, onPay, isHistory }: CreditGroupProp
                           <i className="fa-solid fa-circle-check" /> Pagada
                         </span>
                       ) : isPastDue ? (
-                        <span className="text-[9px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
+                        <span className="text-[9px] font-bold text-danger-600 bg-danger-50 px-2 py-0.5 rounded-full">
                           Vencida
                         </span>
                       ) : (
@@ -196,7 +210,7 @@ function CreditGroup({ group, payingCuotaId, onPay, isHistory }: CreditGroupProp
                         isPaying
                           ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                           : isPastDue
-                            ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-sm'
+                            ? 'bg-danger-500 hover:bg-danger-600 text-white shadow-sm'
                             : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
                       }`}
                     >
@@ -230,18 +244,21 @@ function CreditGroup({ group, payingCuotaId, onPay, isHistory }: CreditGroupProp
 // ---- component ----
 
 export default function Repayment() {
-  const { state, refreshTokens, setReputation, showErrorModal } = useAppState();
+  const { state, refreshTokens, showErrorModal } = useAppState();
+  const queryClient = useQueryClient();
   useLocation();
   const wallet = useMiniPay();
 
-  const [cuotas, setCuotas] = useState<ApiCuota[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [pagoConfig, setPagoConfig] = useState<PagoConfig | null>(null);
   const [payingCuotaId, setPayingCuotaId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [pendingCredit, setPendingCredit] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const lottieRef = useRef<null | { setSpeed: (s: number) => void }>(null);
+
+  // Server-state vía TanStack Query (única fuente de verdad).
+  const { data: cuotasData, isLoading: loading, isError } = useCuotas();
+  const { data: pagoConfig } = usePagoConfig();
+  const { estado: creditEstado } = useCreditoActivo();
+  const cuotas = cuotasData?.cuotas ?? [];
+  const error = isError ? 'No se pudo cargar tu información de pagos.' : null;
 
   // Speed 0.5 for the pending-credit Lottie (matches splash feel)
   useEffect(() => {
@@ -251,59 +268,6 @@ export default function Repayment() {
   });
 
   const authToken = state.authToken;
-
-  // ------------------------------------------------------------------
-  // Fetch cuotas + pago config on mount
-  // ------------------------------------------------------------------
-  useEffect(() => {
-    if (!authToken) {
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-
-    async function load() {
-      try {
-        const tokenOpts = {
-          token: authToken,
-          refreshToken: state.refreshToken,
-          onTokenRefresh: refreshTokens,
-        };
-
-        // Fetch cuotas, pago config, and credit list in parallel
-        const [cuotasData, configData, creditosData] = await Promise.all([
-          apiGet<{ cuotas: ApiCuota[] }>('/api/mis-cuotas', tokenOpts),
-          apiGet<PagoConfig>('/api/mobile/pago-config'),
-          apiGet<{ creditos: { id: string; estado: string }[] }>('/api/creditos', tokenOpts),
-        ]);
-
-        if (!cancelled) {
-          setCuotas(cuotasData.cuotas);
-          setPagoConfig(configData);
-        }
-
-        // Check for pending credits (no cuotas yet — waiting admin approval)
-        if (cuotasData.cuotas.length === 0) {
-          const pending = creditosData.creditos?.find((c) => c.estado === 'pendiente');
-          if (!cancelled && pending) {
-            setPendingCredit(pending.id);
-          }
-        }
-      } catch (err: any) {
-        if (!cancelled) {
-          const msg = err?.message ?? 'Error de conexión';
-          setError(msg);
-          showErrorModal('Error de conexión', 'No se pudo cargar tu información de pagos. Verificá tu conexión e intentá de nuevo.');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    load();
-    return () => { cancelled = true; };
-  }, [authToken, state.refreshToken, refreshTokens]);
 
   // ------------------------------------------------------------------
   // Pay a cuota
@@ -375,17 +339,12 @@ export default function Repayment() {
         },
       );
 
-      // 4. Remove paid cuota from local list
-      setCuotas((prev) => prev.filter((c) => c.id !== cuota.id));
-
-      // 5. Refresh reputation score from server
-      apiGet<{ historial: { score_efectivo: number } }>('/api/participantes/score/historial', {
-        token: authToken,
-        refreshToken: state.refreshToken,
-        onTokenRefresh: refreshTokens,
-      })
-        .then((res) => setReputation(res.historial.score_efectivo))
-        .catch(() => {});
+      // 4. Invalidar server-state: cuotas y estado del crédito se refrescan
+      // solos (al pagar la última cuota → 'pagado'). Reemplaza el sync manual.
+      queryClient.invalidateQueries({ queryKey: queryKeys.creditos });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cuotas });
+      // 5. Refrescar el score (reputación) — se recalcula tras el pago.
+      queryClient.invalidateQueries({ queryKey: queryKeys.score });
 
       showToast(
         '¡Pago Exitoso!',
@@ -400,7 +359,7 @@ export default function Repayment() {
     } finally {
       setPayingCuotaId(null);
     }
-  }, [payingCuotaId, pagoConfig, state.walletAddress, state.authToken, state.refreshToken, refreshTokens, wallet, authToken, setReputation]);
+  }, [payingCuotaId, pagoConfig, state.walletAddress, state.authToken, state.refreshToken, refreshTokens, wallet, authToken, queryClient]);
 
   // ------------------------------------------------------------------
   // Derived
@@ -420,7 +379,7 @@ export default function Repayment() {
     return (
       <div className="flex-1 flex items-center justify-center p-5">
         <div className="text-center">
-          <i className="fa-solid fa-spinner fa-spin text-3xl text-[#2A5C3C]" />
+          <i className="fa-solid fa-spinner fa-spin text-3xl text-primary" />
           <p className="text-xs text-slate-500">Cargando cuotas</p>
         </div>
       </div>
@@ -455,8 +414,8 @@ export default function Repayment() {
         <PageHeader title="Repago de Crédito" subtitle="Ver y pagar tus cuotas." />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-xs">
-            <i className="fa-solid fa-circle-exclamation text-rose-400 text-3xl mb-3" />
-            <p className="text-xs text-rose-600">{error}</p>
+            <i className="fa-solid fa-circle-exclamation text-danger-400 text-3xl mb-3" />
+            <p className="text-xs text-danger-600">{error}</p>
           </div>
         </div>
       </div>
@@ -466,21 +425,21 @@ export default function Repayment() {
   // ------------------------------------------------------------------
   // Credit pending evaluation (no cuotas yet — waiting admin approval)
   // ------------------------------------------------------------------
-  if (!hasCredits && pendingCredit) {
+  if (!hasCredits && creditEstado === 'pendiente') {
     return (
-      <div className="flex-1 flex flex-col bg-gradient-to-b from-[#F0F7F3] to-[#E8F0EC]">
+      <div className="flex-1 flex flex-col bg-gradient-to-b from-surface-light to-surface">
         <div className="px-5 pt-5">
           <PageHeader title="Repago de Crédito" subtitle="Estado de tu solicitud." />
         </div>
         <div className="flex-1 flex items-center justify-center p-6 -mt-10">
-          <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl shadow-green-900/5 p-8 space-y-6">
+          <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl shadow-ink/5 p-8 space-y-6">
             <div className="flex flex-col items-center gap-4">
               <div className="w-44 h-44">
                 {/* @ts-ignore */}
                 <Lottie lottieRef={lottieRef} animationData={splashAnimation} loop autoplay style={{ width: '100%', height: '100%' }} />
               </div>
               <div className="text-center">
-                <h2 className="text-xl font-extrabold text-[#1E3E28] leading-tight">Crédito en Evaluación</h2>
+                <h2 className="text-xl font-extrabold text-ink leading-tight">Crédito en Evaluación</h2>
                 <p className="text-sm text-slate-500 font-medium mt-2 leading-relaxed">
                   Tu solicitud está siendo revisada por el equipo MANGLE. Pronto recibirás notificación cuando sea aprobada y desembolsada.
                 </p>
@@ -503,8 +462,8 @@ export default function Repayment() {
           subtitle="Ver y pagar tus cuotas."
           right={
             <div className="flex items-center gap-1">
-              <span className={`w-2 h-2 rounded-full ${state.nodeAlert ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
-              <span className={`text-[9px] font-bold ${state.nodeAlert ? 'text-rose-700 animate-pulse' : 'text-emerald-700'}`}>
+              <span className={`w-2 h-2 rounded-full ${state.nodeAlert ? 'bg-danger-500 animate-pulse' : 'bg-emerald-500'}`} />
+              <span className={`text-[9px] font-bold ${state.nodeAlert ? 'text-danger-700 animate-pulse' : 'text-emerald-700'}`}>
                 {state.nodeAlert ? 'Alerta Activa (48h)' : 'Nodo Al Día'}
               </span>
             </div>
@@ -535,8 +494,8 @@ export default function Repayment() {
           subtitle="Ver y pagar tus cuotas."
           right={
             <div className="flex items-center gap-1">
-              <span className={`w-2 h-2 rounded-full ${state.nodeAlert ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
-              <span className={`text-[9px] font-bold ${state.nodeAlert ? 'text-rose-700 animate-pulse' : 'text-emerald-700'}`}>
+              <span className={`w-2 h-2 rounded-full ${state.nodeAlert ? 'bg-danger-500 animate-pulse' : 'bg-emerald-500'}`} />
+              <span className={`text-[9px] font-bold ${state.nodeAlert ? 'text-danger-700 animate-pulse' : 'text-emerald-700'}`}>
                 {state.nodeAlert ? 'Alerta Activa (48h)' : 'Nodo Al Día'}
               </span>
             </div>
@@ -545,7 +504,7 @@ export default function Repayment() {
 
         {/* Alert warning */}
         {state.nodeAlert && (
-          <div className="bg-rose-50 border border-rose-200 p-2.5 rounded-xl text-[10px] text-rose-800 animate-pulse">
+          <div className="bg-danger-50 border border-danger-200 p-2.5 rounded-xl text-[10px] text-danger-800 animate-pulse">
             <div className="flex gap-1.5 items-start">
               <i className="fa-solid fa-circle-exclamation text-xs mt-0.5" />
               <div>

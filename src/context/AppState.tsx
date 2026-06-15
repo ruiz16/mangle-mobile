@@ -15,10 +15,6 @@ import {
 import type {
   AppState,
   AuthStep,
-  LoanCategory,
-  GaccMode,
-  Municipio,
-  Member,
 } from '../types';
 import { createDefaultState } from '../types';
 
@@ -30,7 +26,8 @@ function loadSavedState(): AppState {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object' && 'walletConnected' in parsed) {
-        return parsed as AppState;
+        // Sólo se persiste el slice de sesión; el resto se hidrata del default.
+        return { ...createDefaultState(), ...parsed } as AppState;
       }
     }
   } catch {
@@ -38,6 +35,19 @@ function loadSavedState(): AppState {
   }
   return createDefaultState();
 }
+
+// Sólo el slice de SESIÓN se persiste. Los datos del servidor viven en
+// TanStack Query y NUNCA tocan localStorage (evita el bug de staleness).
+const SESSION_KEYS = [
+  'walletConnected',
+  'walletAddress',
+  'registered',
+  'authStep',
+  'siweMessage',
+  'siweSignature',
+  'authToken',
+  'refreshToken',
+] as const satisfies readonly (keyof AppState)[];
 
 function saveState(state: AppState): void {
   const raw = localStorage.getItem(STORAGE_KEY);
@@ -49,7 +59,11 @@ function saveState(state: AppState): void {
       }
     } catch { /* ignorar parseo corrupto */ }
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  const session: Partial<AppState> = {};
+  for (const key of SESSION_KEYS) {
+    (session as Record<string, unknown>)[key] = state[key];
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
 }
 
 // ---------------------------------------------------------------------------
@@ -60,39 +74,18 @@ interface AppStateContextValue {
   state: AppState;
 
   // Actions
-  connectWallet: (address: string, copmBalance?: string) => void;
-  setCopmBalance: (value: string) => void;
+  connectWallet: (address: string) => void;
   setAuthStep: (step: AuthStep) => void;
   setSiweAuth: (message: string, signature: `0x${string}`) => void;
   setAuthTokens: (token: string, refreshToken: string, isNewUser?: boolean, profileCompleted?: boolean) => void;
   refreshTokens: (token: string, refreshToken: string) => void;
   clearAuth: () => void;
-  setFullName: (name: string) => void;
-  setEmail: (email: string) => void;
-  setRole: (role: string) => void;
-  setOficio: (oficio: string) => void;
-  setPhone: (phone: string) => void;
-  setMunicipio: (m: Municipio) => void;
-
-  setGaccMode: (m: GaccMode) => void;
-  setGaccCode: (code: string) => void;
-  setGaccName: (name: string) => void;
-  setGaccMembers: (members: Member[]) => void;
   registerUser: () => void;
-  setEduProgress: (step: number, progress: number) => void;
-  setSelectedAmount: (amount: number) => void;
-  setCategory: (cat: LoanCategory) => void;
-  setTotalInstallments: (n: number) => void;
-  submitLoan: () => void;
-  approveLoan: () => void;
-  payInstallment: () => void;
   resetState: () => void;
 
   // Dev / Alert triggers
   triggerNodeAlert: () => void;
   restoreNodeAlert: () => void;
-  addReputation: (points: number) => void;
-  setReputation: (score: number) => void;
 
   // Blocking error modal
   showErrorModal: (title: string, message: string) => void;
@@ -115,17 +108,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   // ---------- Wallet ----------
 
-  const connectWallet = useCallback((address: string, copmBalance?: string) => {
+  const connectWallet = useCallback((address: string) => {
     setState((prev) => ({
       ...prev,
       walletConnected: true,
       walletAddress: address,
-      copmBalance: copmBalance ?? prev.copmBalance,
     }));
-  }, []);
-
-  const setCopmBalance = useCallback((value: string) => {
-    setState((prev) => ({ ...prev, copmBalance: value }));
   }, []);
 
   const setAuthStep = useCallback((step: AuthStep) => {
@@ -165,95 +153,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  // ---------- Registration fields ----------
-
-  const setFullName = useCallback((name: string) => {
-    setState((prev) => ({ ...prev, fullName: name }));
-  }, []);
-  const setEmail = useCallback((email: string) => {
-    setState((prev) => ({ ...prev, email }));
-  }, []);
-  const setRole = useCallback((role: string) => {
-    setState((prev) => ({ ...prev, role }));
-  }, []);
-  const setPhone = useCallback((phone: string) => {
-    setState((prev) => ({ ...prev, phone }));
-  }, []);
-  const setOficio = useCallback((oficio: string) => {
-    setState((prev) => ({ ...prev, oficio }));
-  }, []);
-  const setMunicipio = useCallback((m: Municipio) => {
-    setState((prev) => ({ ...prev, municipio: m }));
-  }, []);
-  const setGaccMode = useCallback((m: GaccMode) => {
-    setState((prev) => ({ ...prev, gaccMode: m }));
-  }, []);
-  const setGaccCode = useCallback((code: string) => {
-    setState((prev) => ({ ...prev, gaccCode: code }));
-  }, []);
-  const setGaccName = useCallback((name: string) => {
-    setState((prev) => ({ ...prev, gaccName: name }));
-  }, []);
-  const setGaccMembers = useCallback((members: Member[]) => {
-    setState((prev) => ({ ...prev, gaccMembers: members }));
-  }, []);
-
   // ---------- Register User ----------
 
   const registerUser = useCallback(() => {
     setState((prev) => ({ ...prev, registered: true }));
-  }, []);
-
-  // ---------- Education ----------
-
-  const setEduProgress = useCallback((step: number, progress: number) => {
-    setState((prev) => ({
-      ...prev,
-      currentEduStep: step,
-      eduProgress: progress,
-    }));
-  }, []);
-
-  // ---------- Credit ----------
-
-  const setSelectedAmount = useCallback((amount: number) => {
-    setState((prev) => ({ ...prev, selectedAmount: amount }));
-  }, []);
-  const setCategory = useCallback((cat: LoanCategory) => {
-    setState((prev) => ({ ...prev, category: cat }));
-  }, []);
-
-  const setTotalInstallments = useCallback((n: number) => {
-    setState((prev) => ({ ...prev, totalInstallments: n }));
-  }, []);
-
-  const submitLoan = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      creditEstado: 'pendiente',
-      moneda: 'COPm',
-    }));
-  }, []);
-
-  const approveLoan = useCallback(() => {
-    setState((prev) => {
-      if (prev.creditEstado !== 'pendiente') return prev;
-      return { ...prev, creditEstado: 'desembolsado' };
-    });
-  }, []);
-
-  const payInstallment = useCallback(() => {
-    setState((prev) => {
-      if (prev.installmentsPaid >= prev.totalInstallments) return prev;
-      const newPaid = prev.installmentsPaid + 1;
-      const isComplete = newPaid >= prev.totalInstallments;
-      return {
-        ...prev,
-        installmentsPaid: newPaid,
-        creditEstado: isComplete ? 'pagado' : prev.creditEstado,
-        reputation: Math.min(100, prev.reputation + 5),
-      };
-    });
   }, []);
 
   // ---------- Reset ----------
@@ -282,7 +185,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         ...prev,
         nodeAlert: true,
         alertPartnerName: partnerName,
-        reputation: Math.max(50, prev.reputation - 15),
         gaccMembers: updatedMembers.length > 0 ? updatedMembers : prev.gaccMembers,
       };
     });
@@ -302,21 +204,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         ...prev,
         nodeAlert: false,
         alertPartnerName: '',
-        reputation: Math.min(100, prev.reputation + 10),
         gaccMembers: updatedMembers.length > 0 ? updatedMembers : prev.gaccMembers,
       };
     });
-  }, []);
-
-  const addReputation = useCallback((points: number) => {
-    setState((prev) => ({
-      ...prev,
-      reputation: Math.max(0, Math.min(100, prev.reputation + points)),
-    }));
-  }, []);
-
-  const setReputation = useCallback((score: number) => {
-    setState((prev) => ({ ...prev, reputation: Math.max(0, Math.min(100, score)) }));
   }, []);
 
   const showErrorModal = useCallback((title: string, message: string) => {
@@ -334,35 +224,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       value={{
         state,
         connectWallet,
-        setCopmBalance,
         setAuthStep,
         setSiweAuth,
         setAuthTokens,
         clearAuth,
         refreshTokens,
-        setFullName,
-        setEmail,
-        setRole,
-        setOficio,
-        setPhone,
-        setMunicipio,
-        setGaccMode,
-        setGaccCode,
-        setGaccName,
-        setGaccMembers,
         registerUser,
-        setEduProgress,
-        setSelectedAmount,
-        setCategory,
-        setTotalInstallments,
-        submitLoan,
-        approveLoan,
-        payInstallment,
         resetState,
         triggerNodeAlert,
         restoreNodeAlert,
-        addReputation,
-        setReputation,
         showErrorModal,
         clearErrorModal,
       }}

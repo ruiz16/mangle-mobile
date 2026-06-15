@@ -50,6 +50,55 @@ export function getApiBaseUrl(): string {
 }
 
 // ---------------------------------------------------------------------------
+// Network-error observer
+// ---------------------------------------------------------------------------
+// api.ts es INFRAESTRUCTURA: no conoce React ni AppState. Cuando una request
+// no llega al servidor (TypeError de fetch — server caído o inalcanzable),
+// emite un evento. La capa UI (BackendGuard) se suscribe y decide qué mostrar.
+// Esto NO se dispara para respuestas 4xx/5xx: esas son ApiRequestError normales.
+// ---------------------------------------------------------------------------
+
+type NetworkErrorListener = () => void;
+
+const networkErrorListeners = new Set<NetworkErrorListener>();
+
+/**
+ * Suscribe un listener que corre cuando una request no alcanza el servidor.
+ * Devuelve la función de desuscripción (úsala en el cleanup de useEffect).
+ */
+export function onNetworkError(listener: NetworkErrorListener): () => void {
+  networkErrorListeners.add(listener);
+  return () => {
+    networkErrorListeners.delete(listener);
+  };
+}
+
+let isBackendDown = false;
+
+function emitNetworkError(): void {
+  isBackendDown = true;
+  networkErrorListeners.forEach((listener) => listener());
+}
+
+/**
+ * Función para probar si el backend volvió a estar en línea.
+ * Si responde (aunque sea un 404 o 401), se considera arriba.
+ */
+export async function checkBackendStatus(): Promise<boolean> {
+  try {
+    const baseUrl = getApiBaseUrl();
+    // Hacemos un ping a cualquier ruta, ej: el root o health check
+    await fetch(`${baseUrl}/`, { method: 'HEAD', mode: 'no-cors' });
+    
+    // Si no tiró TypeError, el backend está arriba.
+    isBackendDown = false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Token refresh mutex
 // ---------------------------------------------------------------------------
 // Evita que múltiples requests 401 disparen refrescos concurrentes.
@@ -152,6 +201,13 @@ async function request<T>(
   body?: unknown,
   options?: RequestOptions,
 ): Promise<T> {
+  if (isBackendDown) {
+    // Si el backend ya se detectó como caído, bloqueamos cualquier otra
+    // request de otras vistas devolviendo una promesa que nunca resuelve.
+    // (Se limpia con el window.location.reload() del botón Reintentar.)
+    return new Promise<T>(() => {});
+  }
+
   const baseUrl = getApiBaseUrl();
 
   async function doFetch(token: string | null | undefined): Promise<Response> {
@@ -164,12 +220,28 @@ async function request<T>(
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    return fetch(`${baseUrl}${path}`, {
-      method,
-      headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-      signal: options?.signal,
-    });
+    try {
+      return await fetch(`${baseUrl}${path}`, {
+        method,
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal: options?.signal,
+      });
+    } catch (err) {
+      // AbortError (request cancelada vía options.signal) NO es backend caído.
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        throw err;
+      }
+      // TypeError "Failed to fetch" → el servidor no respondió (caído/inalcanzable).
+      // Avisamos al guard y normalizamos a ApiRequestError (status 0) para que las
+      // páginas que ya hacen `instanceof ApiRequestError` lo manejen igual.
+      emitNetworkError();
+      throw new ApiRequestError({
+        error: 'BACKEND_UNREACHABLE',
+        detail: 'No se pudo conectar con el servidor.',
+        status: 0,
+      });
+    }
   }
 
   async function readBody(res: Response): Promise<unknown> {

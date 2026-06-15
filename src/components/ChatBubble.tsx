@@ -14,7 +14,7 @@ export default function ChatBubble({ sender, msg }: ChatBubbleProps) {
 
   return (
     <div className="bg-slate-50 p-2.5 rounded-xl rounded-tl-none border border-slate-100 max-w-[90%] self-start">
-      <span className="font-bold text-[#2A5C3C] text-[10px] block">Libélulas Doradas</span>
+      <span className="font-bold text-primary text-[10px] block">Libélulas Doradas</span>
       <p className="text-xs text-slate-700 mt-0.5 leading-relaxed">{msg}</p>
     </div>
   );

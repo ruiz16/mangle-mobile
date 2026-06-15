@@ -57,7 +57,7 @@ export default function Toast() {
   const typeStyles: Record<ToastType, { bg: string; icon: string }> = {
     success: { bg: 'bg-emerald-500', icon: 'check' },
     warning: { bg: 'bg-amber-500', icon: 'triangle-exclamation' },
-    error: { bg: 'bg-rose-500', icon: 'circle-xmark' },
+    error: { bg: 'bg-danger-500', icon: 'circle-xmark' },
     info: { bg: 'bg-sky-500', icon: 'circle-info' },
   };
   const { bg, icon } = typeStyles[type];

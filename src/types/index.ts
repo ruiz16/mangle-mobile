@@ -23,17 +23,11 @@ export const LOAN_CATEGORIES: { key: LoanCategory; label: string; icon: string }
   { key: 'mercancia', label: 'Mercancía', icon: 'box' },
 ];
 
-/** GACC mode during registration */
-export type GaccMode = 'join' | 'create';
-
 /** Municipios */
 export type Municipio = 'guapi' | 'timbiqui';
 
 /** Credit state — aligned with web app (pendiente → desembolsado → pagado) */
 export type CreditEstado = 'ninguno' | 'pendiente' | 'desembolsado' | 'pagado';
-
-/** Currency type — COPm */
-export type Moneda = 'COPm';
 
 /** Navigation tab */
 export type NavTab = 'education' | 'request' | 'gacc' | 'repayment' | 'credential';
@@ -67,6 +61,7 @@ export interface ApiCuota {
   credito_monto: string;
   credito_estado: string;
   credito_descripcion: string | null;
+  credito_referadora_nombre: string | null;
   numero_cuota: number;
   total_cuotas: number;
   monto_capital: string;
@@ -146,34 +141,13 @@ export interface AppState {
   // Wallet
   walletConnected: boolean;
   walletAddress: string | null;
-  copmBalance: string;
 
-  // User profile
+  // Sesión / perfil mínimo (registered viene de profileCompleted del token)
   registered: boolean;
-  fullName: string;
-  email: string;
-  role: string;
-  oficio: string;
-  phone: string;
   municipio: Municipio;
 
-  // GACC
-  gaccMode: GaccMode;
-  gaccCode: string;
-  gaccName: string;
+  // GACC (sólo lo que consume la simulación de alerta de nodo)
   gaccMembers: Member[];
-
-  // Education
-  eduProgress: number; // 0–100
-  currentEduStep: number;
-
-  // Credit
-  selectedAmount: number;
-  category: LoanCategory;
-  creditEstado: CreditEstado;
-  moneda: Moneda;
-  installmentsPaid: number;
-  totalInstallments: number;
 
   // SIWE Auth
   authStep: AuthStep;
@@ -181,9 +155,6 @@ export interface AppState {
   siweSignature: `0x${string}` | null;
   authToken: string | null;
   refreshToken: string | null;
-
-  // Reputation
-  reputation: number; // 0–100
 
   // Alerts
   nodeAlert: boolean;
@@ -201,32 +172,14 @@ export function createDefaultState(): AppState {
   return {
     walletConnected: false,
     walletAddress: null,
-    copmBalance: '0.00',
     registered: false,
-    fullName: '',
-    email: '',
-    role: '',
-    oficio: '',
-    phone: '',
     municipio: 'guapi',
-    gaccMode: 'join',
-    gaccCode: '',
-    gaccName: '',
     gaccMembers: [],
-    eduProgress: 0,
-    currentEduStep: 1,
-    selectedAmount: 100000,
-    category: 'insumos',
-    creditEstado: 'ninguno',
-    moneda: 'COPm',
-    installmentsPaid: 0,
-    totalInstallments: 4,
     authStep: 'idle',
     siweMessage: null,
     siweSignature: null,
     authToken: null,
     refreshToken: null,
-    reputation: 50,
     nodeAlert: false,
     alertPartnerName: '',
     errorModal: null,

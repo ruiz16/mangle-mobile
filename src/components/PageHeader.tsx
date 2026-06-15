@@ -23,7 +23,7 @@ export default function PageHeader({ title, subtitle, backTo, right }: PageHeade
           </button>
         )}
         <div className="min-w-0">
-          <h1 className="text-sm font-extrabold text-[#1E3E28] truncate">{title}</h1>
+          <h1 className="text-sm font-extrabold text-ink truncate">{title}</h1>
           {subtitle && (
             <p className="text-[10px] text-slate-500 truncate">{subtitle}</p>
           )}

@@ -1,10 +1,14 @@
 import { Route, Switch, useLocation } from 'wouter';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './queries/client';
+import { useEduProgreso } from './queries/educacion';
 import { AppStateProvider, useAppState } from './context/AppState';
 import { useMiniPay } from './hooks/useMiniPay';
 import { showToast } from './components/Toast';
 import BottomNav from './components/BottomNav';
 import Toast from './components/Toast';
 import ErrorModal from './components/ErrorModal';
+import BackendGuard from './components/BackendGuard';
 import Splash from './pages/Splash';
 import Connect from './pages/Connect';
 import Register from './pages/Register';
@@ -23,6 +27,7 @@ import type { NavTab } from './types';
 function MobileShell({ children, showNav }: { children: React.ReactNode; showNav: boolean }) {
   const [, navigate] = useLocation();
   const { state } = useAppState();
+  const { progress: eduProgress } = useEduProgreso();
 
   const handleNav = (tab: NavTab) => {
     const paths: Record<NavTab, string> = {
@@ -47,12 +52,12 @@ function MobileShell({ children, showNav }: { children: React.ReactNode; showNav
   const currentTab = tabMap[location] ?? 'education';
 
   return (
-    <div className="flex-1 bg-[#FBF9F4] overflow-hidden flex flex-col relative">
+    <div className="flex-1 bg-canvas overflow-hidden flex flex-col relative">
       {/* Status bar */}
       {/* <div className="flex justify-between items-center px-6 pt-3 pb-1 text-slate-800 text-[11px] font-bold z-40">
         <span>{new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
         <div className="flex items-center gap-2">
-          <span className="text-[9px] bg-[#2A5C3C] text-white font-extrabold px-1.5 py-0.5 rounded leading-none">MiniPay</span>
+          <span className="text-[9px] bg-primary text-white font-extrabold px-1.5 py-0.5 rounded leading-none">MiniPay</span>
           <i className="fa-solid fa-signal" />
           <i className="fa-solid fa-wifi" />
           <i className="fa-solid fa-battery-full text-xs" />
@@ -66,7 +71,7 @@ function MobileShell({ children, showNav }: { children: React.ReactNode; showNav
 
       {/* Bottom Nav */}
       {showNav && (
-        <BottomNav activeTab={currentTab} onNavigate={handleNav} alertDot={state.nodeAlert} eduComplete={state.eduProgress >= 100} />
+        <BottomNav activeTab={currentTab} onNavigate={handleNav} alertDot={state.nodeAlert} eduComplete={eduProgress >= 100} />
       )}
     </div>
   );
@@ -118,67 +123,72 @@ function DisconnectGuard() {
 export default function App() {
   return (
     <AppStateProvider>
-      <div className="h-full flex flex-col bg-slate-950">
-        <Toast />
-        <GlobalOverlays />
-        <DisconnectGuard />
-        <Switch>
-          <Route path="/dev">
-            <MobileShell showNav={false}>
-              <Dev />
-            </MobileShell>
-          </Route>
+      <QueryClientProvider client={queryClient}>
+      <div className="h-full flex flex-col bg-ink-950">
+        <BackendGuard>
+          <Toast />
+          <GlobalOverlays />
+          <DisconnectGuard />
+          <Switch>
+            
+            <Route path="/dev">
+              <MobileShell showNav={false}>
+                <Dev />
+              </MobileShell>
+            </Route>
 
-          <Route path="/connect">
-            <MobileShell showNav={false}>
-              <Connect />
-            </MobileShell>
-          </Route>
+            <Route path="/connect">
+              <MobileShell showNav={false}>
+                <Connect />
+              </MobileShell>
+            </Route>
 
-          <Route path="/register">
-            <MobileShell showNav={false}>
-              <Register />
-            </MobileShell>
-          </Route>
+            <Route path="/register">
+              <MobileShell showNav={false}>
+                <Register />
+              </MobileShell>
+            </Route>
 
-          <Route path="/education">
-            <MobileShell showNav={true}>
-              <Education />
-            </MobileShell>
-          </Route>
+            <Route path="/education">
+              <MobileShell showNav={true}>
+                <Education />
+              </MobileShell>
+            </Route>
 
-          <Route path="/request">
-            <MobileShell showNav={true}>
-              <Request />
-            </MobileShell>
-          </Route>
+            <Route path="/request">
+              <MobileShell showNav={true}>
+                <Request />
+              </MobileShell>
+            </Route>
 
-          <Route path="/repayment">
-            <MobileShell showNav={true}>
-              <Repayment />
-            </MobileShell>
-          </Route>
+            <Route path="/repayment">
+              <MobileShell showNav={true}>
+                <Repayment />
+              </MobileShell>
+            </Route>
 
-          <Route path="/credential">
-            <MobileShell showNav={true}>
-              <Credential />
-            </MobileShell>
-          </Route>
+            <Route path="/credential">
+              <MobileShell showNav={true}>
+                <Credential />
+              </MobileShell>
+            </Route>
 
-          <Route path="/gacc">
-            <MobileShell showNav={true}>
-              <Gacc />
-            </MobileShell>
-          </Route>
+            <Route path="/gacc">
+              <MobileShell showNav={true}>
+                <Gacc />
+              </MobileShell>
+            </Route>
 
-          {/* Splash (default) */}
-          <Route>
-            <MobileShell showNav={false}>
-              <Splash />
-            </MobileShell>
-          </Route>
-        </Switch>
+            {/* Splash (default) */}
+            <Route>
+              <MobileShell showNav={false}>
+                <Splash />
+              </MobileShell>
+            </Route>
+          </Switch>
+        </BackendGuard>
       </div>
+      </QueryClientProvider>
     </AppStateProvider>
   );
 }

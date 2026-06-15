@@ -7,8 +7,8 @@ html, body, #root {
 }
 
 body {
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  @apply bg-[#121814] text-slate-800 antialiased;
+  font-family: 'Montserrat', system-ui, sans-serif;
+  @apply bg-ink-950 text-slate-800 antialiased;
 }
 
 /* Hide scrollbar for a clean mobile look */

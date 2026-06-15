@@ -1,73 +1,29 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
-import { useAppState } from '../context/AppState';
-import { apiGet, apiPost } from '../lib/api';
-import type {
-  ApiModuloEducativo,
-  ApiModulosResponse,
-  ApiEduProgresoResponse,
-} from '../types';
 import ChatBubble from '../components/ChatBubble';
 import PageHeader from '../components/PageHeader';
 import { showToast } from '../components/Toast';
+import { useModulos, useEduProgreso, useAvanzarEducacion } from '../queries/educacion';
 
 export default function Education() {
-  const { state, setEduProgress, refreshTokens } = useAppState();
   const [, navigate] = useLocation();
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const [modulos, setModulos] = useState<ApiModuloEducativo[]>([]);
-  const [localStep, setLocalStep] = useState(state.currentEduStep);
-  const [loading, setLoading] = useState(true);
+  // Server-state vía TanStack Query.
+  const { data: modulosData, isLoading: loading } = useModulos();
+  const { step: serverStep, progress: serverProgress, completado } = useEduProgreso();
+  const avanzar = useAvanzarEducacion();
+  const modulos = modulosData?.modulos ?? [];
 
-  // ------------------------------------------------------------------
-  // Fetch modules + progress on mount
-  // ------------------------------------------------------------------
+  // El paso visible del chat se controla localmente; se siembra del servidor.
+  const [localStep, setLocalStep] = useState(1);
+  const seeded = useRef(false);
   useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      // ---- 1. Modules (público) ----
-      try {
-        const modRes = await apiGet<ApiModulosResponse>(
-          '/api/educacion/modulos',
-        );
-        if (cancelled) return;
-        setModulos(modRes.modulos);
-      } catch {
-        // Módulos no disponibles — el empty state se encarga
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-
-      // ---- 2. Progreso (separado para que no bloquee módulos) ----
-      try {
-        const progRes = await apiGet<ApiEduProgresoResponse>(
-          '/api/educacion/progreso',
-          {
-            token: state.authToken,
-            refreshToken: state.refreshToken,
-            onTokenRefresh: refreshTokens,
-          },
-        );
-        if (cancelled) return;
-
-        const total = progRes.progreso.modulos_totales || 1;
-        const step = Math.min(progRes.progreso.modulo_actual, total);
-        const progress = progRes.progreso.completado
-          ? 100
-          : Math.round((step / total) * 100);
-
-        setLocalStep(step);
-        setEduProgress(step, progress);
-      } catch {
-        // Progreso no disponible — mantener lo que venga de AppState
-      }
+    if (!seeded.current && serverStep) {
+      setLocalStep(serverStep);
+      seeded.current = true;
     }
-
-    load();
-    return () => { cancelled = true; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps — solo al montar
+  }, [serverStep]);
 
   // ------------------------------------------------------------------
   // Auto-scroll al último mensaje
@@ -81,7 +37,7 @@ export default function Education() {
   // ------------------------------------------------------------------
   const totalModulos = modulos.length;
   const hasModulos = totalModulos > 0;
-  const isComplete = state.eduProgress >= 100 || localStep > totalModulos;
+  const isComplete = completado || serverProgress >= 100 || localStep > totalModulos;
   const progress = isComplete
     ? 100
     : Math.round((localStep / (totalModulos || 1)) * 100);
@@ -107,37 +63,16 @@ export default function Education() {
     setLocalStep(nextStep);
 
     try {
-      const res = await apiPost<ApiEduProgresoResponse>(
-        '/api/educacion/progreso',
-        { modulo_actual: nextStep },
-        {
-          token: state.authToken,
-          refreshToken: state.refreshToken,
-          onTokenRefresh: refreshTokens,
-        },
-      );
-
-      const completed = res.progreso.completado;
-      const apiStep = res.progreso.modulo_actual;
-      const total = res.progreso.modulos_totales || totalModulos;
-      const apiProgress = completed ? 100 : Math.round((apiStep / total) * 100);
-
-      // Sync AppState con la respuesta del servidor
-      setEduProgress(apiStep, apiProgress);
-
-      if (completed) {
+      // La mutación invalida ['edu-progreso'] y refresca el progreso real.
+      const res = await avanzar.mutateAsync(nextStep);
+      if (res.progreso.completado) {
         showToast(
           '¡Módulo Completado!',
           'Has habilitado la solicitud de microcrédito.',
         );
       }
     } catch {
-      // Fallback: si falla el API, mantener el avance local
-      const fallbackProgress = Math.round((nextStep / totalModulos) * 100);
-      setEduProgress(
-        Math.min(nextStep, totalModulos),
-        Math.min(fallbackProgress, 100),
-      );
+      // Fallback: si falla el API, mantener el avance local optimista.
     }
   };
 
@@ -148,7 +83,7 @@ export default function Education() {
     return (
       <div className="flex-1 flex items-center justify-center p-5">
         <div className="text-center space-y-3">
-          <i className="fa-solid fa-spinner fa-spin text-3xl text-[#2A5C3C]" />
+          <i className="fa-solid fa-spinner fa-spin text-3xl text-primary" />
           <p className="text-xs text-slate-500">Cargando módulos</p>
         </div>
       </div>
@@ -176,7 +111,7 @@ export default function Education() {
         <div className="pt-4">
           <button
             onClick={() => navigate('/request')}
-            className="w-full py-3.5 bg-[#D99B26] hover:bg-amber-600 text-white font-extrabold text-sm rounded-xl shadow-md transition"
+            className="w-full py-3.5 bg-accent hover:bg-accent-dark text-white font-extrabold text-sm rounded-xl shadow-md transition"
           >
             Ir a Solicitar Crédito
           </button>
@@ -185,7 +120,8 @@ export default function Education() {
     );
   }
 
-  const visibleSteps = modulos.slice(0, localStep);
+  // Si el progreso ya viene completado, mostrar todos los módulos (no recortar).
+  const visibleSteps = isComplete ? modulos : modulos.slice(0, localStep);
 
   // ------------------------------------------------------------------
   // Render
@@ -203,7 +139,7 @@ export default function Education() {
           }
         />
 
-        <span className="block text-[11px] font-bold text-[#2A5C3C] bg-[#EBF4EE] px-2.5 py-1 rounded-full w-fit">
+        <span className="block text-[11px] font-bold text-primary bg-surface px-2.5 py-1 rounded-full w-fit">
           <i className="fa-solid fa-graduation-cap" /> Módulo de Preparación
         </span>
 
@@ -215,7 +151,7 @@ export default function Education() {
           </div>
           <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
             <div
-              className="bg-[#2A5C3C] h-full transition-all duration-500"
+              className="bg-primary h-full transition-all duration-500"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -244,7 +180,7 @@ export default function Education() {
         {isComplete ? (
           <button
             onClick={() => navigate('/request')}
-            className="w-full py-3.5 bg-[#D99B26] hover:bg-amber-600 text-white font-extrabold text-sm rounded-xl shadow-md transition flex items-center justify-center gap-2"
+            className="w-full py-3.5 bg-accent hover:bg-accent-dark text-white font-extrabold text-sm rounded-xl shadow-md transition flex items-center justify-center gap-2"
           >
             <span>Solicitar Crédito</span>{' '}
             <i className="fa-solid fa-circle-arrow-right" />
@@ -252,7 +188,7 @@ export default function Education() {
         ) : (
           <button
             onClick={handleAdvance}
-            className="w-full py-3 bg-[#2A5C3C] hover:bg-[#1E3E28] text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2"
+            className="w-full py-3 bg-primary hover:bg-ink text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2"
           >
             <span>Continuar Aprendizaje</span>{' '}
             <i className="fa-solid fa-arrow-right" />

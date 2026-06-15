@@ -1,28 +1,24 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAppState } from '../context/AppState';
 import { showToast } from '../components/Toast';
 import PageHeader from '../components/PageHeader';
 import { apiGet, apiPost } from '../lib/api';
+import { queryKeys } from '../queries/client';
 import ErrorModal from '../components/ErrorModal';
 
 export default function Register() {
-  const {
-    state,
-    refreshTokens,
-    setFullName,
-    setEmail,
-    setOficio,
-    setPhone,
-    setGaccCode,
-    registerUser,
-  } = useAppState();
+  const { state, refreshTokens, registerUser } = useAppState();
+  const queryClient = useQueryClient();
   const [, navigate] = useLocation();
 
-  const [localName, setLocalName] = useState(state.fullName);
-  const [localEmail, setLocalEmail] = useState(state.email);
-  const [localPhone, setLocalPhone] = useState(state.phone);
-  const [localCode, setLocalCode] = useState(state.gaccCode);
+  // Inputs del formulario — estado local (el perfil real vive en el backend).
+  const [localName, setLocalName] = useState('');
+  const [localEmail, setLocalEmail] = useState('');
+  const [localPhone, setLocalPhone] = useState('');
+  const [localOficio, setLocalOficio] = useState('');
+  const [localCode, setLocalCode] = useState('');
 
   const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
 
@@ -44,7 +40,7 @@ export default function Register() {
       showToast('Faltan Campos', 'Por favor ingresa tu número de celular.', 'warning');
       return;
     }
-    if (!state.oficio.trim()) {
+    if (!localOficio.trim()) {
       showToast('Faltan Campos', 'Por favor ingresa tu oficio o rol ancestral.', 'warning');
       return;
     }
@@ -53,12 +49,6 @@ export default function Register() {
       showToast('Falta Código', 'Por favor ingresa un código de invitación.', 'warning');
       return;
     }
-
-    // ---- Guardar en estado local ----
-    setFullName(localName.trim());
-    setEmail(localEmail.trim());
-    setPhone(localPhone.trim());
-    setGaccCode(localCode.trim());
 
     registerUser();
 
@@ -77,7 +67,7 @@ export default function Register() {
         email: localEmail.trim(),
         wallet_address: state.walletAddress,
         rol: 'usuario',
-        oficio: state.oficio.trim(),
+        oficio: localOficio.trim(),
         telefono: localPhone.trim(),
       }, { token: state.authToken, refreshToken: state.refreshToken, onTokenRefresh: refreshTokens });
 
@@ -96,6 +86,10 @@ export default function Register() {
       return; // ❌ No navega — se queda en Register
     }
 
+    // Refrescar perfil/GACC desde el backend tras el registro.
+    queryClient.invalidateQueries({ queryKey: queryKeys.profile });
+    queryClient.invalidateQueries({ queryKey: queryKeys.miGrupo });
+
     showToast('Registro Exitoso', 'Bienvenida a MANGLE.', 'success');
     setTimeout(() => navigate('/education'), 800);
   };
@@ -107,14 +101,14 @@ export default function Register() {
           title="Registro del Perfil Emprendedor"
           subtitle="Tus datos personales para registro en la Fundación Libélulas Doradas."
           right={
-            <span className="text-[10px] bg-amber-400 px-2 py-1.5 rounded-full text font-bold text-[#fff] uppercase tracking-wider">Paso Obligatorio</span>
+            <span className="text-[10px] bg-amber-400 px-2 py-1.5 rounded-full text font-bold text-white uppercase tracking-wider">Paso Obligatorio</span>
           }
         />
 
         {/* Privacy */}
-        <div className="bg-[#EBF4EE]/50 p-3 rounded-xl border border-[#2A5C3C]/10 flex gap-2">
-          <i className="fa-solid fa-shield-halved text-[#2A5C3C] text-xs mt-0.5" />
-          <p className="text-[9px] text-[#1E3E28] leading-relaxed">
+        <div className="bg-surface/50 p-3 rounded-xl border border-primary/10 flex gap-2">
+          <i className="fa-solid fa-shield-halved text-primary text-xs mt-0.5" />
+          <p className="text-[9px] text-ink leading-relaxed">
             Tus datos personales se almacenan de forma privada en la aplicación. En la blockchain solo queda registro de tu wallet y tus transacciones.
           </p>
         </div>
@@ -128,7 +122,7 @@ export default function Register() {
               value={localName}
               onChange={(e) => setLocalName(e.target.value)}
               placeholder="Tu nombre completo"
-              className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-[#2A5C3C] focus:outline-none"
+              className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-primary focus:outline-none"
             />
           </div>
 
@@ -140,7 +134,7 @@ export default function Register() {
               value={localEmail}
               onChange={(e) => setLocalEmail(e.target.value)}
               placeholder="Tu correo electrónico"
-              className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-[#2A5C3C] focus:outline-none"
+              className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-primary focus:outline-none"
             />
           </div>
 
@@ -150,10 +144,10 @@ export default function Register() {
             <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Tu Oficio / Profesión</label>
             <input
               type="text"
-              value={state.oficio}
-              onChange={(e) => setOficio(e.target.value)}
+              value={localOficio}
+              onChange={(e) => setLocalOficio(e.target.value)}
               placeholder="Tu oficio o profesión"
-              className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-[#2A5C3C] focus:outline-none"
+              className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-primary focus:outline-none"
             />
             </div>
 
@@ -165,7 +159,7 @@ export default function Register() {
                 value={localPhone}
                 onChange={(e) => setLocalPhone(e.target.value)}
                 placeholder="Tu número de celular"
-                className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-[#2A5C3C] focus:outline-none"
+                className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-primary focus:outline-none"
               />
             </div>
           </div>
@@ -178,7 +172,7 @@ export default function Register() {
               value={localCode}
               onChange={(e) => setLocalCode(e.target.value.toUpperCase())}
               placeholder="Tu código de invitación GACC (MANGLE-GUAPI)"
-              className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-mono focus:ring-1 focus:ring-[#2A5C3C] focus:outline-none uppercase"
+              className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-mono focus:ring-1 focus:ring-primary focus:outline-none uppercase"
             />
           </div>
         </div>
@@ -187,7 +181,7 @@ export default function Register() {
       <div className="pt-4">
         <button
           onClick={handleSubmit}
-          className="w-full py-3 bg-[#2A5C3C] hover:bg-[#1E3E28] text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5"
+          className="w-full py-3 bg-primary hover:bg-ink text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5"
         >
           <span>Guardar Perfil y Continuar</span> <i className="fa-solid fa-arrow-right" />
         </button>

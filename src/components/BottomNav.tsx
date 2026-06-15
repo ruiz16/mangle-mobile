@@ -27,7 +27,7 @@ export default function BottomNav({ activeTab, onNavigate, alertDot: _alertDot, 
             disabled={tab.key === 'request' && !eduComplete}
             className={`flex flex-col items-center gap-0.5 relative transition-all ${
               isActive
-                ? 'text-[#2A5C3C] font-bold scale-105'
+                ? 'text-primary font-bold scale-105'
                 : tab.key === 'request' && !eduComplete
                   ? 'text-slate-300 opacity-40'
                   : 'text-slate-400 hover:text-slate-600'

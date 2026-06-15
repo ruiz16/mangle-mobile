@@ -14,10 +14,10 @@ interface ErrorModalProps {
 
 export default function ErrorModal({ title, message, onClose }: ErrorModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-5 bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-5 bg-black/60">
+      <div className="w-full max-w-sm bg-white rounded-xl shadow-2xl overflow-hidden">
         {/* Red header */}
-        <div className="bg-rose-500 px-6 pt-8 pb-6 flex flex-col items-center gap-3">
+        <div className="bg-red-500 px-6 pt-8 pb-6 flex flex-col items-center gap-3">
           <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center">
             <i className="fa-solid fa-circle-exclamation text-white text-2xl" />
           </div>
@@ -35,7 +35,7 @@ export default function ErrorModal({ title, message, onClose }: ErrorModalProps)
         <div className="px-6 pb-6">
           <button
             onClick={onClose}
-            className="w-full py-3.5 bg-rose-500 hover:bg-rose-600 active:scale-[0.98] text-white font-extrabold text-sm rounded-2xl shadow-md transition-all"
+            className="w-full py-3.5 bg-red-500 hover:bg-red-600 active:scale-[0.98] text-white font-extrabold text-sm rounded-2xl shadow-md transition-all"
           >
             Entendido
           </button>

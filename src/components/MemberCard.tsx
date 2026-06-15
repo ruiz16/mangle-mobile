@@ -6,10 +6,11 @@ interface MemberCardProps {
 
 export default function MemberCard({ member }: MemberCardProps) {
   const isAlert = member.status === 'En Alerta';
+  const isLider = member.role === 'Líder Social';
 
   let statusBadge: string;
   if (isAlert) {
-    statusBadge = 'bg-rose-50 text-rose-700 font-bold px-2 py-0.5 rounded-full text-[9px] animate-pulse';
+    statusBadge = 'bg-danger-50 text-danger-700 font-bold px-2 py-0.5 rounded-full text-[9px] animate-pulse';
   } else {
     statusBadge = 'bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full text-[9px]';
   }
@@ -24,10 +25,16 @@ export default function MemberCard({ member }: MemberCardProps) {
           <span className="font-bold text-slate-800 flex items-center gap-1">
             {member.name}
             {member.self && (
-              <span className="text-[8px] bg-[#2A5C3C]/10 text-[#2A5C3C] px-1 rounded">Tú</span>
+              <span className="text-[8px] bg-primary/10 text-primary px-1 rounded">Tú</span>
             )}
           </span>
-          <span className="text-[9px] text-slate-400 block">{member.role}</span>
+          {isLider ? (
+            <span className="text-[8px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 mt-0.5">
+              <i className="fa-solid fa-star text-[7px]" /> Líder Social
+            </span>
+          ) : (
+            <span className="text-[9px] text-slate-400 block">{member.role}</span>
+          )}
         </div>
       </div>
       <div className="flex flex-col items-end gap-0.5">

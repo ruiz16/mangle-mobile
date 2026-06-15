@@ -1,14 +1,6 @@
-import { useState, useEffect } from 'react';
 import { useAppState } from '../context/AppState';
 import PageHeader from '../components/PageHeader';
-import { apiGet } from '../lib/api';
-
-interface HistorialResponse {
-  historial: {
-    score_efectivo: number;
-    antiguedad_meses: number;
-  };
-}
+import { useProfile, useScore } from '../queries/perfil';
 
 function scoreLabel(score: number): { text: string; color: string } {
   if (score >= 80) return { text: 'Excelente', color: '#4ade80' };
@@ -18,23 +10,10 @@ function scoreLabel(score: number): { text: string; color: string } {
 }
 
 export default function Credential() {
-  const { state, refreshTokens } = useAppState();
-  const [score, setScore] = useState<number>(state.reputation);
-  const [antiguedad, setAntiguedad] = useState<number>(0);
-
-  useEffect(() => {
-    if (!state.authToken) return;
-    apiGet<HistorialResponse>('/api/participantes/score/historial', {
-      token: state.authToken,
-      refreshToken: state.refreshToken,
-      onTokenRefresh: refreshTokens,
-    })
-      .then((res) => {
-        setScore(res.historial.score_efectivo);
-        setAntiguedad(res.historial.antiguedad_meses);
-      })
-      .catch(() => {});
-  }, [state.authToken]);
+  const { state } = useAppState();
+  const { data: profileData } = useProfile();
+  const fullName = profileData?.participante.nombre ?? '';
+  const { score, antiguedad } = useScore();
 
   const { text: label, color: labelColor } = scoreLabel(score);
   const truncatedAddress = state.walletAddress
@@ -83,7 +62,7 @@ export default function Credential() {
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-[7px] uppercase tracking-[0.25em] text-amber-200/60 font-semibold">Garantía Social</p>
-                <p className="text-sm font-black tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>MANGLE VC</p>
+                <p className="text-sm font-black tracking-wide font-display">MANGLE VC</p>
               </div>
               <div className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center border border-white/15">
                 <i className="fa-solid fa-dragon text-amber-200 text-sm" />
@@ -126,7 +105,7 @@ export default function Credential() {
             <div className="flex justify-between items-end pt-1 border-t border-white/10">
               <div>
                 <p className="text-[7px] text-amber-200/50 uppercase tracking-wider">Titular</p>
-                <p className="text-[11px] font-bold">{state.fullName || '—'}</p>
+                <p className="text-[11px] font-bold">{fullName || '—'}</p>
               </div>
               <div className="text-right">
                 <p className="text-[7px] text-amber-200/50 uppercase tracking-wider">Wallet</p>

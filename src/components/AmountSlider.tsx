@@ -24,11 +24,11 @@ export default function AmountSlider({
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3.5 space-y-3">
       <span className="text-xs font-bold text-slate-900 block">
-        <i className="fa-solid fa-coins text-[#D99B26] mr-1.5" />¿Cuánto crédito necesitas?
+        <i className="fa-solid fa-coins text-accent mr-1.5" />¿Cuánto crédito necesitas?
       </span>
 
       <div className="text-center py-2">
-        <span className="inline-block bg-[#EBF4EE] text-[#2A5C3C] text-2xl font-black px-5 py-2 rounded-xl">{formatCOP(value)} COP</span>
+        <span className="inline-block bg-surface text-primary text-2xl font-black px-5 py-2 rounded-xl">{formatCOP(value)} COP</span>
       </div>
 
       <div className="relative pt-2">
@@ -39,7 +39,7 @@ export default function AmountSlider({
           step={step}
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
-          className="w-full h-2.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#2A5C3C]"
+          className="w-full h-2.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary"
         />
         <div className="flex justify-between text-[10px] text-slate-500 font-bold mt-2">
           <span>Min: {formatCOP(min)} COP</span>
@@ -57,7 +57,7 @@ export default function AmountSlider({
             disabled={installments <= 1}
             className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-bold disabled:opacity-30"
           >−</button>
-          <span className="text-sm font-black text-[#2A5C3C] w-6 text-center">{installments}</span>
+          <span className="text-sm font-black text-primary w-6 text-center">{installments}</span>
           <button
             type="button"
             onClick={() => onInstallmentsChange(Math.min(24, installments + 1))}
