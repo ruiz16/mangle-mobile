@@ -103,14 +103,52 @@ export function useGaccSemaforo() {
   return useApiQuery<GaccStats>(['gacc-semaforo'], '/api/gacc/semaforo');
 }
 
-/**
- * Alerta de nodo derivada del semáforo del servidor (NO estado local).
- * `true` cuando el grupo NO está en verde (amarillo/rojo = hay mora real).
- * Reemplaza el antiguo `state.nodeAlert`.
- */
-export function useNodeAlerta(): boolean {
-  const { data } = useGaccSemaforo();
-  return !!data && data.semaforo !== 'verde';
+// ---------------------------------------------------------------------------
+// Mi alerta — alerta de mora PERSONALIZADA por relación (privacidad)
+// ---------------------------------------------------------------------------
+//
+// A diferencia del semáforo grupal (color público), esta alerta solo aparece si
+// la mora le concierne al usuario: crédito propio, donde es referidora, o si es
+// el Líder Social del GACC. El nombre del deudor solo se expone a referidora y
+// líder. Reemplaza al antiguo `state.nodeAlert` (estado local).
+// ---------------------------------------------------------------------------
+
+export type RolAlerta = 'propio' | 'referadora' | 'lider';
+
+export interface MiAlerta {
+  alerta: boolean;
+  rol: RolAlerta | null;
+  deudor_nombre: string | null;
+  dias_mora: number;
+  total_moras: number;
+}
+
+const SIN_ALERTA: MiAlerta = {
+  alerta: false,
+  rol: null,
+  deudor_nombre: null,
+  dias_mora: 0,
+  total_moras: 0,
+};
+
+/** GET /api/gacc/mi-alerta — ¿hay una mora que me concierne? (con nombre si aplica). */
+export function useMiAlerta(): MiAlerta {
+  const { data } = useApiQuery<MiAlerta>(['gacc-mi-alerta'], '/api/gacc/mi-alerta');
+  return data ?? SIN_ALERTA;
+}
+
+/** Texto del banner según el rol del usuario frente a la mora. */
+export function mensajeAlerta(a: MiAlerta): string {
+  if (!a.alerta) return '';
+  if (a.rol === 'propio') {
+    return 'Tienes una cuota en mora. Regulariza tu pago para no comprometer la garantía social de tu grupo.';
+  }
+  if (a.rol === 'referadora') {
+    return `Tu referida ${a.deudor_nombre ?? ''} tiene una cuota en mora. Tu red tiene 48h para apoyarla antes de suspender el nodo.`;
+  }
+  // lider
+  const extra = a.total_moras > 1 ? ` (y ${a.total_moras - 1} más)` : '';
+  return `${a.deudor_nombre ?? 'Un miembro'}${extra} de tu grupo presenta mora. Como Líder Social, coordina la regularización en las próximas 48h.`;
 }
 
 /** POST /api/avales — avalar un crédito; invalida pendientes y créditos. */

@@ -3,7 +3,7 @@ import { useAppState } from '../context/AppState';
 import MemberCard from '../components/MemberCard';
 import PageHeader from '../components/PageHeader';
 import { showToast } from '../components/Toast';
-import { useMiGrupo, usePendientesAval, useGaccSemaforo, useAvalar } from '../queries/gacc';
+import { useMiGrupo, usePendientesAval, useGaccSemaforo, useAvalar, useMiAlerta, mensajeAlerta } from '../queries/gacc';
 
 export default function Gacc() {
   const { showErrorModal } = useAppState();
@@ -14,6 +14,7 @@ export default function Gacc() {
   const { grupo, isLoading: grupoLoading } = useMiGrupo();
   const { data: pendientesData, isLoading: pendientesLoading } = usePendientesAval();
   const { data: gaccStats, isLoading: statsLoading } = useGaccSemaforo();
+  const miAlerta = useMiAlerta();
   const avalar = useAvalar();
   const pendingCredits = pendientesData?.creditos ?? [];
 
@@ -84,14 +85,14 @@ export default function Gacc() {
 
         {!grupoLoading && !pendientesLoading && !statsLoading && (
           <>
-            {/* Community Alert — derivada del semáforo del servidor */}
-            {!isVerde && (
+            {/* Community Alert — personalizada por relación (privacidad) */}
+            {miAlerta.alerta && (
               <div className="bg-danger-50 border border-danger-200 rounded-2xl p-4 flex gap-3 items-start">
                 <i className="fa-solid fa-circle-exclamation text-danger-500 mt-0.5 text-sm shrink-0" />
                 <div>
                   <p className="text-xs font-bold text-danger-800">Garantía Social Comprometida</p>
                   <p className="text-[10px] text-danger-700 mt-0.5 leading-relaxed">
-                    Tu red presenta una cuota en mora. Apóyense para regularizar antes de que se suspenda el nodo.
+                    {mensajeAlerta(miAlerta)}
                   </p>
                 </div>
               </div>

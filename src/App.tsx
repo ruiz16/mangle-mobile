@@ -2,7 +2,7 @@ import { Route, Switch, useLocation } from 'wouter';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './queries/client';
 import { useEduProgreso } from './queries/educacion';
-import { useNodeAlerta } from './queries/gacc';
+import { useMiAlerta } from './queries/gacc';
 import { AppStateProvider, useAppState } from './context/AppState';
 import { useMiniPay } from './hooks/useMiniPay';
 import { showToast } from './components/Toast';
@@ -28,7 +28,7 @@ import type { NavTab } from './types';
 function MobileShell({ children, showNav }: { children: React.ReactNode; showNav: boolean }) {
   const [, navigate] = useLocation();
   const { progress: eduProgress } = useEduProgreso();
-  const nodeAlerta = useNodeAlerta();
+  const { alerta: nodeAlerta } = useMiAlerta();
 
   const handleNav = (tab: NavTab) => {
     const paths: Record<NavTab, string> = {

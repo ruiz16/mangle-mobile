@@ -33,6 +33,7 @@ const INVALIDATE = [
   queryKeys.creditos,
   queryKeys.score,
   ['gacc-semaforo'],
+  ['gacc-mi-alerta'],
   ['gacc-pendientes-aval'],
 ] as const;
 

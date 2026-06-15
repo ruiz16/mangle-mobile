@@ -166,8 +166,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   //
   // La simulación de alerta de nodo ya NO vive en estado local: el panel Dev
   // llama a POST /api/dev/alerta y /resolver (ver src/queries/dev.ts), que
-  // mutan datos reales. El semáforo del servidor (useGaccSemaforo) es la única
-  // fuente de verdad de la alerta — ver useNodeAlerta en src/queries/gacc.ts.
+  // mutan datos reales. La alerta visible al usuario es PERSONALIZADA por
+  // relación con la mora — ver useMiAlerta en src/queries/gacc.ts.
 
   const showErrorModal = useCallback((title: string, message: string) => {
     setState((prev) => ({ ...prev, errorModal: { title, message } }));

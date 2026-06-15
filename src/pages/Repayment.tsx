@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../queries/client';
 import { useCuotas, usePagoConfig } from '../queries/cuotas';
 import { useCreditoActivo } from '../queries/creditos';
-import { useNodeAlerta } from '../queries/gacc';
+import { useMiAlerta, mensajeAlerta } from '../queries/gacc';
 import { createPublicClient, http, keccak256, stringToHex } from 'viem';
 import { useAppState } from '../context/AppState';
 import { useMiniPay } from '../hooks/useMiniPay';
@@ -246,7 +246,8 @@ function CreditGroup({ group, payingCuotaId, onPay, isHistory }: CreditGroupProp
 
 export default function Repayment() {
   const { state, refreshTokens, showErrorModal } = useAppState();
-  const nodeAlerta = useNodeAlerta();
+  const miAlerta = useMiAlerta();
+  const nodeAlerta = miAlerta.alerta;
   const queryClient = useQueryClient();
   useLocation();
   const wallet = useMiniPay();
@@ -506,14 +507,14 @@ export default function Repayment() {
 
         {!isLoading && (
           <>
-            {/* Alert warning — derivada del semáforo del servidor */}
-            {nodeAlerta && (
+            {/* Alert warning — personalizada por relación (privacidad) */}
+            {miAlerta.alerta && (
               <div className="bg-danger-50 border border-danger-200 p-2.5 rounded-xl text-[10px] text-danger-800 animate-pulse">
                 <div className="flex gap-1.5 items-start">
                   <i className="fa-solid fa-circle-exclamation text-xs mt-0.5" />
                   <div>
                     <strong className="font-bold block">Garantía Social Comprometida</strong>
-                    Tu red presenta una cuota en mora. Regularicen los pagos en las próximas 48h para no suspender el nodo.
+                    {mensajeAlerta(miAlerta)}
                   </div>
                 </div>
               </div>
