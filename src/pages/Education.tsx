@@ -38,9 +38,7 @@ export default function Education() {
   const totalModulos = modulos.length;
   const hasModulos = totalModulos > 0;
   const isComplete = completado || serverProgress >= 100 || localStep > totalModulos;
-  const progress = isComplete
-    ? 100
-    : Math.round((localStep / (totalModulos || 1)) * 100);
+  const progress = isComplete ? 100 : Math.round((localStep / (totalModulos || 1)) * 100);
 
   // ------------------------------------------------------------------
   // Advance handler
@@ -76,50 +74,6 @@ export default function Education() {
     }
   };
 
-  // ------------------------------------------------------------------
-  // Loading skeleton
-  // ------------------------------------------------------------------
-  if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center p-5">
-        <div className="text-center space-y-3">
-          <i className="fa-solid fa-spinner fa-spin text-3xl text-primary" />
-          <p className="text-xs text-slate-500">Cargando módulos</p>
-        </div>
-      </div>
-    );
-  }
-
-  // ------------------------------------------------------------------
-  // Empty state
-  // ------------------------------------------------------------------
-  if (!hasModulos) {
-    return (
-      <div className="flex-1 flex flex-col justify-between p-5">
-        <div className="space-y-4">
-          <PageHeader
-            title="Finanzas Cooperativas"
-            subtitle="Completa tus saberes para liberar tu solicitud de microcrédito grupal."
-          />
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm text-center space-y-2">
-            <i className="fa-solid fa-book-open text-3xl text-slate-300" />
-            <p className="text-xs text-slate-500">
-              No hay módulos disponibles por ahora.
-            </p>
-          </div>
-        </div>
-        <div className="pt-4">
-          <button
-            onClick={() => navigate('/request')}
-            className="w-full py-3.5 bg-accent hover:bg-accent-dark text-white font-extrabold text-sm rounded-xl shadow-md transition"
-          >
-            Ir a Solicitar Crédito
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   // Si el progreso ya viene completado, mostrar todos los módulos (no recortar).
   const visibleSteps = isComplete ? modulos : modulos.slice(0, localStep);
 
@@ -134,7 +88,11 @@ export default function Education() {
           subtitle="Completa tus saberes para liberar tu solicitud de microcrédito grupal."
           right={
             <span className="text-xs font-mono text-slate-400">
-              Paso {Math.min(localStep, totalModulos)} de {totalModulos}
+              {loading
+                ? 'Cargando...'
+                : hasModulos
+                  ? `Paso ${Math.min(localStep, totalModulos)} de ${totalModulos}`
+                  : 'Sin módulos'}
             </span>
           }
         />
@@ -147,12 +105,12 @@ export default function Education() {
         <div className="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-sm space-y-2">
           <div className="flex justify-between text-xs font-bold text-slate-700">
             <span>Tu Progreso Educativo</span>
-            <span>{progress}%</span>
+            <span>{loading ? 0 : progress}%</span>
           </div>
           <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
             <div
               className="bg-primary h-full transition-all duration-500"
-              style={{ width: `${progress}%` }}
+              style={{ width: `${loading ? 0 : progress}%` }}
             />
           </div>
           <div className="flex justify-between text-[9px] text-slate-400">
@@ -168,21 +126,43 @@ export default function Education() {
           </span>
 
           <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
-            {visibleSteps.map((step, i) => (
-              <ChatBubble key={i} sender={step.sender} msg={step.mensaje} />
-            ))}
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-6 space-y-3">
+                <i className="fa-solid fa-spinner fa-spin text-2xl text-primary" />
+                <p className="text-xs text-slate-500">Cargando módulos</p>
+              </div>
+            ) : !hasModulos ? (
+              <div className="text-center py-6 space-y-2">
+                <i className="fa-solid fa-book-open text-3xl text-slate-300" />
+                <p className="text-xs text-slate-500">
+                  No hay módulos disponibles por ahora.
+                </p>
+              </div>
+            ) : (
+              visibleSteps.map((step, i) => (
+                <ChatBubble key={i} sender={step.sender} msg={step.mensaje} />
+              ))
+            )}
             <div ref={chatEndRef} />
           </div>
         </div>
       </div>
 
       <div className="pt-4">
-        {isComplete ? (
+        {loading ? (
+          <button
+            disabled
+            className="w-full py-3 bg-slate-200 text-slate-400 font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2"
+          >
+            <i className="fa-solid fa-spinner fa-spin" />
+            <span>Cargando...</span>
+          </button>
+        ) : isComplete || !hasModulos ? (
           <button
             onClick={() => navigate('/request')}
             className="w-full py-3.5 bg-accent hover:bg-accent-dark text-white font-extrabold text-sm rounded-xl shadow-md transition flex items-center justify-center gap-2"
           >
-            <span>Solicitar Crédito</span>{' '}
+            <span>{hasModulos ? 'Solicitar Crédito' : 'Ir a Solicitar Crédito'}</span>{' '}
             <i className="fa-solid fa-circle-arrow-right" />
           </button>
         ) : (

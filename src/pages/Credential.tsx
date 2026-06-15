@@ -13,9 +13,9 @@ function scoreLabel(score: number): { text: string; color: string } {
 
 export default function Credential() {
   const { state } = useAppState();
-  const { data: profileData } = useProfile();
+  const { data: profileData, isLoading: profileLoading } = useProfile();
   const fullName = profileData?.participante.nombre ?? '';
-  const { score, antiguedad } = useScore();
+  const { score, antiguedad, isLoading: scoreLoading } = useScore();
 
   const { text: label, color: labelColor } = scoreLabel(score);
   const truncatedAddress = state.walletAddress
@@ -26,6 +26,7 @@ export default function Credential() {
   const sw = 5;
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference - (score / 100) * circumference;
+  const isLoading = profileLoading || scoreLoading;
 
   return (
     <div className="flex-1 flex flex-col p-5 gap-6 relative overflow-hidden">
@@ -38,9 +39,16 @@ export default function Credential() {
 
       <PageHeader title="Tu Reputación Off-Chain" subtitle="Credencial Digital" />
 
-      {/* Card */}
-      <div className="mx-auto w-full max-w-[272px]">
-        <div
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-10 space-y-3">
+          <i className="fa-solid fa-spinner fa-spin text-3xl text-primary" />
+          <p className="text-xs text-slate-500">Cargando credencial...</p>
+        </div>
+      ) : (
+        <>
+          {/* Card */}
+          <div className="mx-auto w-full max-w-[272px]">
+            <div
           className="relative rounded-2xl overflow-hidden text-white"
           style={{
             background: 'linear-gradient(140deg, #B05B35 0%, #8c4322 40%, #B05B35 70%, #5c2810 100%)',
@@ -142,6 +150,8 @@ export default function Credential() {
         Este score vive de forma auditable, en todas las transacciones de tu wallet MiniPay. 
         Nos sirve para validar tu compromiso y la confianza para la fase 2.
       </p>
+        </>
+      )}
 
       <style>{`
         @keyframes float {

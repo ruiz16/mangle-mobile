@@ -254,9 +254,9 @@ export default function Repayment() {
   const lottieRef = useRef<null | { setSpeed: (s: number) => void }>(null);
 
   // Server-state vía TanStack Query (única fuente de verdad).
-  const { data: cuotasData, isLoading: loading, isError } = useCuotas();
-  const { data: pagoConfig } = usePagoConfig();
-  const { estado: creditEstado } = useCreditoActivo();
+  const { data: cuotasData, isLoading: cuotasLoading, isError } = useCuotas();
+  const { data: pagoConfig, isLoading: configLoading } = usePagoConfig();
+  const { estado: creditEstado, isLoading: creditLoading } = useCreditoActivo();
   const cuotas = cuotasData?.cuotas ?? [];
   const error = isError ? 'No se pudo cargar tu información de pagos.' : null;
 
@@ -377,17 +377,8 @@ export default function Repayment() {
   // ------------------------------------------------------------------
   // Loading state
   // ------------------------------------------------------------------
-  if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center p-5">
-        <div className="text-center">
-          <i className="fa-solid fa-spinner fa-spin text-3xl text-primary" />
-          <p className="text-xs text-slate-500">Cargando cuotas</p>
-        </div>
-      </div>
-    );
-  }
-
+  const isLoading = cuotasLoading || configLoading || creditLoading;
+  
   // ------------------------------------------------------------------
   // Not logged in
   // ------------------------------------------------------------------
@@ -427,7 +418,7 @@ export default function Repayment() {
   // ------------------------------------------------------------------
   // Credit pending evaluation (no cuotas yet — waiting admin approval)
   // ------------------------------------------------------------------
-  if (!hasCredits && creditEstado === 'pendiente') {
+  if (!isLoading && !hasCredits && creditEstado === 'pendiente') {
     return (
       <div className="flex-1 flex flex-col bg-gradient-to-b from-surface-light to-surface">
         <div className="px-5 pt-5">
@@ -456,7 +447,7 @@ export default function Repayment() {
   // ------------------------------------------------------------------
   // No cuotas (no credits or all paid)
   // ------------------------------------------------------------------
-  if (!hasCredits) {
+  if (!isLoading && !hasCredits) {
     return (
       <div className="flex-1 flex flex-col p-5">
         <PageHeader
@@ -504,62 +495,73 @@ export default function Repayment() {
           }
         />
 
-        {/* Alert warning */}
-        {state.nodeAlert && (
-          <div className="bg-danger-50 border border-danger-200 p-2.5 rounded-xl text-[10px] text-danger-800 animate-pulse">
-            <div className="flex gap-1.5 items-start">
-              <i className="fa-solid fa-circle-exclamation text-xs mt-0.5" />
-              <div>
-                <strong className="font-bold block">Garantía Social Comprometida</strong>
-                Tu compañera <span className="font-bold">{state.alertPartnerName}</span> presenta retraso. Tu red tiene 48h para apoyarla antes de suspender el nodo.
-              </div>
-            </div>
+        {isLoading && (
+          <div className="flex flex-col items-center justify-center py-10 space-y-3">
+            <i className="fa-solid fa-spinner fa-spin text-3xl text-primary" />
+            <p className="text-xs text-slate-500">Cargando cuotas...</p>
           </div>
         )}
 
-        {/* ── Active credit ── */}
-        {activeGroup && (
-          <CreditGroup
-            group={activeGroup}
-            payingCuotaId={payingCuotaId}
-            onPay={handlePay}
-            isHistory={false}
-          />
-        )}
-
-        {/* ── Historical credits ── */}
-        {historicalGroups.length > 0 && (
-          <div>
-            <button
-              onClick={() => setHistoryOpen((v) => !v)}
-              className="w-full flex items-center justify-between px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-[10px] font-bold text-slate-500 uppercase tracking-wider transition hover:bg-slate-100"
-            >
-              <span className="flex items-center gap-2">
-                <i className="fa-solid fa-clock-rotate-left" />
-                Historial de créditos ({historicalGroups.length})
-              </span>
-              <i className={`fa-solid fa-chevron-${historyOpen ? 'up' : 'down'} text-slate-400`} />
-            </button>
-
-            {historyOpen && (
-              <div className="mt-3 space-y-4">
-                {historicalGroups.map((group) => (
-                  <CreditGroup
-                    key={group.credito_id}
-                    group={group}
-                    payingCuotaId={null}
-                    onPay={null}
-                    isHistory
-                  />
-                ))}
+        {!isLoading && (
+          <>
+            {/* Alert warning */}
+            {state.nodeAlert && (
+              <div className="bg-danger-50 border border-danger-200 p-2.5 rounded-xl text-[10px] text-danger-800 animate-pulse">
+                <div className="flex gap-1.5 items-start">
+                  <i className="fa-solid fa-circle-exclamation text-xs mt-0.5" />
+                  <div>
+                    <strong className="font-bold block">Garantía Social Comprometida</strong>
+                    Tu compañera <span className="font-bold">{state.alertPartnerName}</span> presenta retraso. Tu red tiene 48h para apoyarla antes de suspender el nodo.
+                  </div>
+                </div>
               </div>
             )}
-          </div>
+
+            {/* ── Active credit ── */}
+            {activeGroup && (
+              <CreditGroup
+                group={activeGroup}
+                payingCuotaId={payingCuotaId}
+                onPay={handlePay}
+                isHistory={false}
+              />
+            )}
+
+            {/* ── Historical credits ── */}
+            {historicalGroups.length > 0 && (
+              <div>
+                <button
+                  onClick={() => setHistoryOpen((v) => !v)}
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-[10px] font-bold text-slate-500 uppercase tracking-wider transition hover:bg-slate-100"
+                >
+                  <span className="flex items-center gap-2">
+                    <i className="fa-solid fa-clock-rotate-left" />
+                    Historial de créditos ({historicalGroups.length})
+                  </span>
+                  <i className={`fa-solid fa-chevron-${historyOpen ? 'up' : 'down'} text-slate-400`} />
+                </button>
+
+                {historyOpen && (
+                  <div className="mt-3 space-y-4">
+                    {historicalGroups.map((group) => (
+                      <CreditGroup
+                        key={group.credito_id}
+                        group={group}
+                        payingCuotaId={null}
+                        onPay={null}
+                        isHistory
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
 
       {/* Wallet connection warning */}
-      {!walletConnected && hasCredits && (
+      {!isLoading && !walletConnected && hasCredits && (
         <div className="pt-4">
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
             <i className="fa-solid fa-plug text-amber-600 text-base block mb-1" />

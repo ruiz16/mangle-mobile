@@ -125,7 +125,7 @@ export default function Request() {
   const [totalInstallments, setTotalInstallments] = useState(4);
 
   // Estado real del crédito desde el backend (única fuente de verdad).
-  const { credito, estado: creditEstado } = useCreditoActivo();
+  const { credito, estado: creditEstado, isLoading: creditLoading } = useCreditoActivo();
   const { progress: eduProgress, isLoading: eduLoading } = useEduProgreso();
   const { data: cuotasData } = useCuotas();
   const installmentsPaid = credito ? cuotasPagadas(cuotasData?.cuotas ?? [], credito.id) : 0;
@@ -243,8 +243,16 @@ export default function Request() {
           </div>
         )}
 
+        {/* Loading state for active credit check */}
+        {creditLoading && (
+          <div className="flex flex-col items-center justify-center py-10 space-y-3">
+            <i className="fa-solid fa-spinner fa-spin text-3xl text-primary" />
+            <p className="text-xs text-slate-500">Verificando estado de crédito...</p>
+          </div>
+        )}
+
         {/* Active credit — replace form */}
-        {creditEstado === 'pendiente' && (
+        {!creditLoading && creditEstado === 'pendiente' && (
           <div className="space-y-3">
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3 items-start">
               <i className="fa-solid fa-clock text-amber-500 mt-0.5 text-sm shrink-0" />
@@ -272,7 +280,7 @@ export default function Request() {
           </div>
         )}
 
-        {creditEstado === 'desembolsado' && (
+        {!creditLoading && creditEstado === 'desembolsado' && (
           <div className="space-y-3">
             <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex gap-3 items-start">
               <i className="fa-solid fa-circle-check text-emerald-500 mt-0.5 text-sm shrink-0" />
@@ -306,7 +314,7 @@ export default function Request() {
         )}
 
         {/* Form — only when no active credit */}
-        {(creditEstado === 'ninguno' || creditEstado === 'pagado') && (<>
+        {!creditLoading && (creditEstado === 'ninguno' || creditEstado === 'pagado') && (<>
           <AmountSlider
             value={selectedAmount}
             onChange={setSelectedAmount}
@@ -366,9 +374,10 @@ export default function Request() {
               Una compañera de tu GACC dará el primer aval (1/2). Luego el Líder Social dará el segundo (2/2).
             </p>
             {referadoras.length === 0 ? (
-              <p className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                Cargando...
-              </p>
+              <div className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+                <i className="fa-solid fa-spinner fa-spin text-primary text-sm" />
+                <span className="text-xs text-slate-500">Cargando referadoras...</span>
+              </div>
             ) : (
               <select
                 value={referadoraId}
@@ -388,7 +397,7 @@ export default function Request() {
       </div>
 
       {/* Submit — only when form is visible */}
-      {(creditEstado === 'ninguno' || creditEstado === 'pagado') && (
+      {!creditLoading && (creditEstado === 'ninguno' || creditEstado === 'pagado') && (
         <div className="pt-3">
           <button
             onClick={handleSubmit}

@@ -22,12 +22,13 @@ interface ScoreHistorialResponse {
 
 /** GET /api/participantes/score/historial — score (reputación) + antigüedad. */
 export function useScore() {
-  const { data } = useApiQuery<ScoreHistorialResponse>(
+  const { data, isLoading } = useApiQuery<ScoreHistorialResponse>(
     queryKeys.score,
     '/api/participantes/score/historial',
   );
   return {
     score: data?.historial.score_efectivo ?? 0,
     antiguedad: data?.historial.antiguedad_meses ?? 0,
+    isLoading,
   };
 }
