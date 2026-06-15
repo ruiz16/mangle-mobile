@@ -97,13 +97,13 @@ export default function Gacc() {
               Grupo
             </span>
             <span className="text-[10px] font-bold text-slate-600">
-              {members.length} miembro{members.length !== 1 ? 's' : ''}
+              <span>{members.length} miembro{members.length !== 1 ? 's' : ''}</span>
             </span>
           </div>
           <span className="text-sm font-bold text-slate-800">{grupo?.nombre}</span>
           <div className="flex flex-wrap gap-2 items-center justify-between">
             <span className="text-[10px] bg-ink text-white px-2 py-0.5 rounded-full font-bold">
-              Score del GACC: {gaccStats ? Math.round(gaccStats.score_gacc) : avgScore}
+              <span>Score del GACC: {gaccStats ? Math.round(gaccStats.score_gacc) : avgScore}</span>
             </span>
             {gaccStats && (
               <span
@@ -124,11 +124,13 @@ export default function Gacc() {
                         : 'bg-danger-500'
                   }`}
                 />
-                {gaccStats.semaforo === 'verde'
-                  ? 'Al día'
-                  : gaccStats.semaforo === 'amarillo'
-                    ? 'En mora leve'
-                    : 'En mora grave'}
+                <span>
+                  {gaccStats.semaforo === 'verde'
+                    ? 'Al día'
+                    : gaccStats.semaforo === 'amarillo'
+                      ? 'En mora leve'
+                      : 'En mora grave'}
+                </span>
               </span>
             )}
             {gaccStats?.estado === 'restringido' && (
@@ -169,7 +171,7 @@ export default function Gacc() {
                   )}
                 </div>
                 <span className="text-[10px] font-bold text-primary bg-white px-2 py-0.5 rounded-full border border-primary/30">
-                  {ownPendingCredit.avales_actuales}/{ownPendingCredit.avales_minimos} avales
+                  <span>{ownPendingCredit.avales_actuales}/{ownPendingCredit.avales_minimos} avales</span>
                 </span>
               </div>
               {/* Progress bar */}
@@ -180,9 +182,11 @@ export default function Gacc() {
                 />
               </div>
               <p className="text-[9px] text-primary font-medium text-center">
-                {ownPendingCredit.avales_actuales >= ownPendingCredit.avales_minimos
-                  ? 'Tu crédito fue avalado y será procesado pronto.'
-                  : `Esperando avales de tus compañeras (${ownPendingCredit.avales_minimos - ownPendingCredit.avales_actuales} faltante${ownPendingCredit.avales_minimos - ownPendingCredit.avales_actuales !== 1 ? 's' : ''})`}
+                <span>
+                  {ownPendingCredit.avales_actuales >= ownPendingCredit.avales_minimos
+                    ? 'Tu crédito fue avalado y será procesado pronto.'
+                    : `Esperando avales de tus compañeras (${ownPendingCredit.avales_minimos - ownPendingCredit.avales_actuales} faltante${ownPendingCredit.avales_minimos - ownPendingCredit.avales_actuales !== 1 ? 's' : ''})`}
+                </span>
               </p>
             </div>
           </div>
@@ -216,19 +220,19 @@ export default function Gacc() {
                       )}
                     </div>
                     <span className="text-[10px] font-bold text-primary bg-surface px-2 py-0.5 rounded-full">
-                      {credito.avales_actuales}/2 avales
+                      <span>{credito.avales_actuales}/2 avales</span>
                     </span>
                   </div>
                   {/* Circuito: referadora (1/2) → líder social (2/2) */}
                   <div className="flex items-center gap-3 text-[10px]">
                     <span className={credito.aval_referadora_hecho ? 'text-emerald-600 font-bold' : 'text-slate-400'}>
-                      {credito.aval_referadora_hecho ? '✓' : '○'} Referadora
+                      <span>{credito.aval_referadora_hecho ? '✓' : '○'} Referadora</span>
                       {credito.referadora_nombre && (
                         <span className="font-normal text-slate-500"> ({credito.referadora_nombre})</span>
                       )}
                     </span>
                     <span className={credito.aval_lider_hecho ? 'text-emerald-600 font-bold' : 'text-slate-400'}>
-                      {credito.aval_lider_hecho ? '✓' : '○'} Líder Social
+                      <span>{credito.aval_lider_hecho ? '✓' : '○'} Líder Social</span>
                     </span>
                   </div>
                   {credito.ya_avale ? (
@@ -241,13 +245,15 @@ export default function Gacc() {
                       disabled={loadingAval === credito.id}
                       className="w-full py-2 rounded-xl text-xs font-extrabold text-white bg-primary disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all"
                     >
-                      {loadingAval === credito.id ? 'Avalando…' : etiqueta}
+                      <span>{loadingAval === credito.id ? 'Avalando…' : etiqueta}</span>
                     </button>
                   ) : (
                     <div className="w-full py-2 rounded-xl text-[10px] font-bold text-slate-500 bg-slate-50 text-center">
-                      {credito.mi_rol === 'lider' && !credito.aval_referadora_hecho
-                        ? 'Esperando el aval de la referadora (1/2)'
-                        : 'En proceso'}
+                      <span>
+                        {credito.mi_rol === 'lider' && !credito.aval_referadora_hecho
+                          ? 'Esperando el aval de la referadora (1/2)'
+                          : 'En proceso'}
+                      </span>
                     </div>
                   )}
                 </div>
