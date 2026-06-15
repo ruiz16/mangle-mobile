@@ -6,7 +6,7 @@ import { showToast } from '../components/Toast';
 import { useMiGrupo, usePendientesAval, useGaccSemaforo, useAvalar } from '../queries/gacc';
 
 export default function Gacc() {
-  const { state, showErrorModal } = useAppState();
+  const { showErrorModal } = useAppState();
   const [loadingAval, setLoadingAval] = useState<string | null>(null); // credito_id being avalado
   const [isMembersOpen, setIsMembersOpen] = useState(false);
 
@@ -84,14 +84,14 @@ export default function Gacc() {
 
         {!grupoLoading && !pendientesLoading && !statsLoading && (
           <>
-            {/* Community Alert */}
-            {state.nodeAlert && (
+            {/* Community Alert — derivada del semáforo del servidor */}
+            {!isVerde && (
               <div className="bg-danger-50 border border-danger-200 rounded-2xl p-4 flex gap-3 items-start">
                 <i className="fa-solid fa-circle-exclamation text-danger-500 mt-0.5 text-sm shrink-0" />
                 <div>
                   <p className="text-xs font-bold text-danger-800">Garantía Social Comprometida</p>
                   <p className="text-[10px] text-danger-700 mt-0.5 leading-relaxed">
-                    Tu compañera <span className="font-bold">{state.alertPartnerName}</span> presenta retraso. Tu red tiene 48h para apoyarla antes de suspender el nodo.
+                    Tu red presenta una cuota en mora. Apóyense para regularizar antes de que se suspenda el nodo.
                   </p>
                 </div>
               </div>

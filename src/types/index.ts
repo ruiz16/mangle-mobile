@@ -146,19 +146,12 @@ export interface AppState {
   registered: boolean;
   municipio: Municipio;
 
-  // GACC (sólo lo que consume la simulación de alerta de nodo)
-  gaccMembers: Member[];
-
   // SIWE Auth
   authStep: AuthStep;
   siweMessage: string | null;
   siweSignature: `0x${string}` | null;
   authToken: string | null;
   refreshToken: string | null;
-
-  // Alerts
-  nodeAlert: boolean;
-  alertPartnerName: string;
 
   // Blocking error modal
   errorModal: { title: string; message: string } | null;
@@ -174,14 +167,11 @@ export function createDefaultState(): AppState {
     walletAddress: null,
     registered: false,
     municipio: 'guapi',
-    gaccMembers: [],
     authStep: 'idle',
     siweMessage: null,
     siweSignature: null,
     authToken: null,
     refreshToken: null,
-    nodeAlert: false,
-    alertPartnerName: '',
     errorModal: null,
   };
 }

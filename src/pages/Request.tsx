@@ -11,6 +11,7 @@ import { formatCOP } from '../lib/currency';
 import { useCreditoActivo, useSolicitarCredito } from '../queries/creditos';
 import { useCuotas, cuotasPagadas } from '../queries/cuotas';
 import { useEduProgreso } from '../queries/educacion';
+import { useNodeAlerta } from '../queries/gacc';
 
 // ---------------------------------------------------------------------------
 // Referadora (modelo GACC)
@@ -112,6 +113,7 @@ function ScoreHistorial({ eventos }: { eventos: EventoScore[] }) {
 
 export default function Request() {
   const { state, refreshTokens } = useAppState();
+  const nodeAlerta = useNodeAlerta();
   const [, navigate] = useLocation();
   const [submitting, setSubmitting] = useState(false);
   const [descripcion, setDescripcion] = useState('');
@@ -146,7 +148,7 @@ export default function Request() {
       return;
     }
 
-    apiGet<HistorialResponse>('/api/participantes/score/historial?limit=4', {
+    apiGet<HistorialResponse>('/api/participantes/score/historial', {
       token: state.authToken,
       refreshToken: state.refreshToken,
       onTokenRefresh: refreshTokens,
@@ -230,14 +232,14 @@ export default function Request() {
           subtitle="Solicita tu crédito y recibe tu COPm en tu wallet."
         />
 
-        {/* Node alert */}
-        {state.nodeAlert && (
+        {/* Node alert — derivada del semáforo del servidor */}
+        {nodeAlerta && (
           <div className="bg-danger-50 border border-danger-200 rounded-2xl p-4 flex gap-3 items-start">
             <i className="fa-solid fa-circle-exclamation text-danger-500 mt-0.5 text-sm shrink-0" />
             <div>
               <p className="text-xs font-bold text-danger-800">Alerta en tu red</p>
               <p className="text-[10px] text-danger-700 mt-0.5 leading-relaxed">
-                Tu compañera <span className="font-bold">{state.alertPartnerName}</span> tiene pagos atrasados. Tu red tiene 48h para regularizar antes de que se suspenda el nodo.
+                Tu red tiene una cuota en mora. Regularicen los pagos en las próximas 48h para no suspender el nodo.
               </p>
             </div>
           </div>

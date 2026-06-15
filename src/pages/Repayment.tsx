@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../queries/client';
 import { useCuotas, usePagoConfig } from '../queries/cuotas';
 import { useCreditoActivo } from '../queries/creditos';
+import { useNodeAlerta } from '../queries/gacc';
 import { createPublicClient, http, keccak256, stringToHex } from 'viem';
 import { useAppState } from '../context/AppState';
 import { useMiniPay } from '../hooks/useMiniPay';
@@ -245,6 +246,7 @@ function CreditGroup({ group, payingCuotaId, onPay, isHistory }: CreditGroupProp
 
 export default function Repayment() {
   const { state, refreshTokens, showErrorModal } = useAppState();
+  const nodeAlerta = useNodeAlerta();
   const queryClient = useQueryClient();
   useLocation();
   const wallet = useMiniPay();
@@ -455,9 +457,9 @@ export default function Repayment() {
           subtitle="Ver y pagar tus cuotas."
           right={
             <div className="flex items-center gap-1">
-              <span className={`w-2 h-2 rounded-full ${state.nodeAlert ? 'bg-danger-500 animate-pulse' : 'bg-emerald-500'}`} />
-              <span className={`text-[9px] font-bold ${state.nodeAlert ? 'text-danger-700 animate-pulse' : 'text-emerald-700'}`}>
-                {state.nodeAlert ? 'Alerta Activa (48h)' : 'Nodo Al Día'}
+              <span className={`w-2 h-2 rounded-full ${nodeAlerta ? 'bg-danger-500 animate-pulse' : 'bg-emerald-500'}`} />
+              <span className={`text-[9px] font-bold ${nodeAlerta ? 'text-danger-700 animate-pulse' : 'text-emerald-700'}`}>
+                {nodeAlerta ? 'Alerta Activa (48h)' : 'Nodo Al Día'}
               </span>
             </div>
           }
@@ -487,9 +489,9 @@ export default function Repayment() {
           subtitle="Ver y pagar tus cuotas."
           right={
             <div className="flex items-center gap-1">
-              <span className={`w-2 h-2 rounded-full ${state.nodeAlert ? 'bg-danger-500 animate-pulse' : 'bg-emerald-500'}`} />
-              <span className={`text-[9px] font-bold ${state.nodeAlert ? 'text-danger-700 animate-pulse' : 'text-emerald-700'}`}>
-                {state.nodeAlert ? 'Alerta Activa (48h)' : 'Nodo Al Día'}
+              <span className={`w-2 h-2 rounded-full ${nodeAlerta ? 'bg-danger-500 animate-pulse' : 'bg-emerald-500'}`} />
+              <span className={`text-[9px] font-bold ${nodeAlerta ? 'text-danger-700 animate-pulse' : 'text-emerald-700'}`}>
+                {nodeAlerta ? 'Alerta Activa (48h)' : 'Nodo Al Día'}
               </span>
             </div>
           }
@@ -504,14 +506,14 @@ export default function Repayment() {
 
         {!isLoading && (
           <>
-            {/* Alert warning */}
-            {state.nodeAlert && (
+            {/* Alert warning — derivada del semáforo del servidor */}
+            {nodeAlerta && (
               <div className="bg-danger-50 border border-danger-200 p-2.5 rounded-xl text-[10px] text-danger-800 animate-pulse">
                 <div className="flex gap-1.5 items-start">
                   <i className="fa-solid fa-circle-exclamation text-xs mt-0.5" />
                   <div>
                     <strong className="font-bold block">Garantía Social Comprometida</strong>
-                    Tu compañera <span className="font-bold">{state.alertPartnerName}</span> presenta retraso. Tu red tiene 48h para apoyarla antes de suspender el nodo.
+                    Tu red presenta una cuota en mora. Regularicen los pagos en las próximas 48h para no suspender el nodo.
                   </div>
                 </div>
               </div>

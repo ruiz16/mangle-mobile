@@ -103,6 +103,16 @@ export function useGaccSemaforo() {
   return useApiQuery<GaccStats>(['gacc-semaforo'], '/api/gacc/semaforo');
 }
 
+/**
+ * Alerta de nodo derivada del semáforo del servidor (NO estado local).
+ * `true` cuando el grupo NO está en verde (amarillo/rojo = hay mora real).
+ * Reemplaza el antiguo `state.nodeAlert`.
+ */
+export function useNodeAlerta(): boolean {
+  const { data } = useGaccSemaforo();
+  return !!data && data.semaforo !== 'verde';
+}
+
 /** POST /api/avales — avalar un crédito; invalida pendientes y créditos. */
 export function useAvalar() {
   return useApiMutation<unknown, string>(

@@ -2,6 +2,7 @@ import { Route, Switch, useLocation } from 'wouter';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './queries/client';
 import { useEduProgreso } from './queries/educacion';
+import { useNodeAlerta } from './queries/gacc';
 import { AppStateProvider, useAppState } from './context/AppState';
 import { useMiniPay } from './hooks/useMiniPay';
 import { showToast } from './components/Toast';
@@ -26,8 +27,8 @@ import type { NavTab } from './types';
 
 function MobileShell({ children, showNav }: { children: React.ReactNode; showNav: boolean }) {
   const [, navigate] = useLocation();
-  const { state } = useAppState();
   const { progress: eduProgress } = useEduProgreso();
+  const nodeAlerta = useNodeAlerta();
 
   const handleNav = (tab: NavTab) => {
     const paths: Record<NavTab, string> = {
@@ -71,7 +72,7 @@ function MobileShell({ children, showNav }: { children: React.ReactNode; showNav
 
       {/* Bottom Nav */}
       {showNav && (
-        <BottomNav activeTab={currentTab} onNavigate={handleNav} alertDot={state.nodeAlert} eduComplete={eduProgress >= 100} />
+        <BottomNav activeTab={currentTab} onNavigate={handleNav} alertDot={nodeAlerta} eduComplete={eduProgress >= 100} />
       )}
     </div>
   );

@@ -83,10 +83,6 @@ interface AppStateContextValue {
   registerUser: () => void;
   resetState: () => void;
 
-  // Dev / Alert triggers
-  triggerNodeAlert: () => void;
-  restoreNodeAlert: () => void;
-
   // Blocking error modal
   showErrorModal: (title: string, message: string) => void;
   clearErrorModal: () => void;
@@ -167,47 +163,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ---------- Dev / Alert triggers ----------
-
-  const triggerNodeAlert = useCallback(() => {
-    setState((prev) => {
-      const partnerName = prev.municipio === 'guapi' ? 'María Estela Cuero' : 'Xiomara Carabalí';
-
-      // Update GACC members: find the partner and set to alert
-      const updatedMembers = prev.gaccMembers.map((m) => {
-        const first = partnerName.split(' ')[0] ?? '';
-        if (m.name.includes(first)) {
-          return { ...m, status: 'En Alerta' as const, score: Math.max(60, m.score - 15) };
-        }
-        return m;
-      });
-
-      return {
-        ...prev,
-        nodeAlert: true,
-        alertPartnerName: partnerName,
-        gaccMembers: updatedMembers.length > 0 ? updatedMembers : prev.gaccMembers,
-      };
-    });
-  }, []);
-
-  const restoreNodeAlert = useCallback(() => {
-    setState((prev) => {
-      const updatedMembers = prev.gaccMembers.map((m) => {
-        const first = (prev.alertPartnerName ?? '').split(' ')[0] ?? '';
-        if (m.name.includes(first)) {
-          return { ...m, status: 'Al día' as const, score: Math.min(100, m.score + 15) };
-        }
-        return m;
-      });
-
-      return {
-        ...prev,
-        nodeAlert: false,
-        alertPartnerName: '',
-        gaccMembers: updatedMembers.length > 0 ? updatedMembers : prev.gaccMembers,
-      };
-    });
-  }, []);
+  //
+  // La simulación de alerta de nodo ya NO vive en estado local: el panel Dev
+  // llama a POST /api/dev/alerta y /resolver (ver src/queries/dev.ts), que
+  // mutan datos reales. El semáforo del servidor (useGaccSemaforo) es la única
+  // fuente de verdad de la alerta — ver useNodeAlerta en src/queries/gacc.ts.
 
   const showErrorModal = useCallback((title: string, message: string) => {
     setState((prev) => ({ ...prev, errorModal: { title, message } }));
@@ -231,8 +191,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         refreshTokens,
         registerUser,
         resetState,
-        triggerNodeAlert,
-        restoreNodeAlert,
         showErrorModal,
         clearErrorModal,
       }}
