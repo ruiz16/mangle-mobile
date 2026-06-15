@@ -8,6 +8,7 @@ import { useMiGrupo, usePendientesAval, useGaccSemaforo, useAvalar } from '../qu
 export default function Gacc() {
   const { state, showErrorModal } = useAppState();
   const [loadingAval, setLoadingAval] = useState<string | null>(null); // credito_id being avalado
+  const [isMembersOpen, setIsMembersOpen] = useState(false);
 
   // Server-state vía TanStack Query (única fuente de verdad).
   const { grupo } = useMiGrupo();
@@ -45,6 +46,20 @@ export default function Gacc() {
 
   const creditsToAval = pendingCredits.filter((c) => c.mi_rol !== null && !c.es_propio);
   const ownPendingCredit = pendingCredits.find((c) => c.es_propio) ?? null;
+
+  // Semáforo Computations
+  const isVerde = gaccStats?.semaforo === 'verde';
+  const isAmarillo = gaccStats?.semaforo === 'amarillo';
+  
+  const stateColor = isVerde ? '#10b981' : isAmarillo ? '#f59e0b' : '#ef4444';
+  const stateBg = isVerde ? '#d1fae5' : isAmarillo ? '#fef3c7' : '#fee2e2';
+  const stateText = isVerde ? '#064e3b' : isAmarillo ? '#78350f' : '#7f1d1d';
+  const stateLabel = isVerde ? 'Verde - Al día' : isAmarillo ? 'Amarillo - Mora leve' : 'Rojo - Mora grave';
+  const stateMessage = isVerde 
+    ? 'Tu grupo está al día.\n¡Juntas construyen confianza!'
+    : isAmarillo
+      ? 'Alerta en tu grupo.\n¡Apóyense para mejorar!'
+      : 'Mora grave en el grupo.\nActúen para no perder el acceso.';
 
   return (
     <div className="flex-1 flex flex-col justify-between p-5">
@@ -90,55 +105,73 @@ export default function Gacc() {
           </span>
         </div>
 
-        {/* Group Info */}
-        <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-[9px] text-slate-400 uppercase tracking-wider block font-bold">
-              Grupo
-            </span>
-            <span className="text-[10px] font-bold text-slate-600">
-              <span>{members.length} miembro{members.length !== 1 ? 's' : ''}</span>
-            </span>
-          </div>
-          <span className="text-sm font-bold text-slate-800">{grupo?.nombre}</span>
-          <div className="flex flex-wrap gap-2 items-center justify-between">
-            <span className="text-[10px] bg-ink text-white px-2 py-0.5 rounded-full font-bold">
-              <span>Score del GACC: {gaccStats ? Math.round(gaccStats.score_gacc) : avgScore}</span>
-            </span>
-            {gaccStats && (
-              <span
-                className={`text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1 ${
-                  gaccStats.semaforo === 'verde'
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : gaccStats.semaforo === 'amarillo'
-                      ? 'bg-amber-100 text-amber-700'
-                      : 'bg-danger-100 text-danger-700'
-                }`}
-              >
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    gaccStats.semaforo === 'verde'
-                      ? 'bg-emerald-500'
-                      : gaccStats.semaforo === 'amarillo'
-                        ? 'bg-amber-500'
-                        : 'bg-danger-500'
-                  }`}
-                />
-                <span>
-                  {gaccStats.semaforo === 'verde'
-                    ? 'Al día'
-                    : gaccStats.semaforo === 'amarillo'
-                      ? 'En mora leve'
-                      : 'En mora grave'}
-                </span>
+        {/* Group Info & Semáforo */}
+        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+          <div className="flex justify-between items-start">
+            <div>
+              <span className="text-[9px] text-slate-400 uppercase tracking-wider block font-bold mb-1">
+                Tu Grupo GACC
               </span>
-            )}
-            {gaccStats?.estado === 'restringido' && (
-              <span className="text-[10px] bg-danger-600 text-white px-2 py-0.5 rounded-full font-bold">
-                Restringido
+              <span className="text-lg font-black text-slate-800 leading-none">{grupo?.nombre}</span>
+            </div>
+            <div className="text-right">
+              <span className="text-[9px] text-slate-400 uppercase tracking-wider block font-bold mb-1">
+                Score
               </span>
-            )}
+              <span className="text-sm font-black text-ink bg-slate-100 px-2 py-0.5 rounded-lg">
+                <span>{gaccStats ? Math.round(gaccStats.score_gacc) : avgScore}</span>
+              </span>
+            </div>
           </div>
+
+          {gaccStats && (
+            <div className="bg-white py-4 flex flex-col items-center justify-center">
+              <div className="relative w-52 h-40 flex flex-col items-center">
+                <svg viewBox="0 0 200 160" className="absolute inset-0 w-full h-full overflow-visible">
+                  {/* Outer arc */}
+                  <path id="semaforo-arc" d="M 35 150 A 82 82 0 1 1 165 150" fill="none" stroke="#fef08a" strokeWidth="18" strokeLinecap="round" />
+                  
+                  {/* Inner Circle */}
+                  <circle cx="100" cy="100" r="52" fill={stateBg} stroke={stateColor} strokeWidth="8" />
+                  
+                  {/* Text along arc */}
+                  <text className="text-[10px] font-black uppercase tracking-wider" fill="#475569">
+                    <textPath href="#semaforo-arc" startOffset="50%" textAnchor="middle" dominantBaseline="middle">
+                      Semáforo Comunitario
+                    </textPath>
+                  </text>
+                </svg>
+
+                {/* Content inside the circle */}
+                <div 
+                  className="absolute z-10 flex flex-col items-center justify-center w-full"
+                  style={{ top: '100px', transform: 'translateY(-50%)' }}
+                >
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center mb-1 text-white shadow-sm" style={{ backgroundColor: stateColor }}>
+                    <span>
+                      {isVerde && <i className="fa-solid fa-check text-xs" />}
+                      {isAmarillo && <i className="fa-solid fa-exclamation text-xs" />}
+                      {!isVerde && !isAmarillo && <i className="fa-solid fa-xmark text-xs" />}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-black text-center leading-tight" style={{ color: stateText }}>
+                    <span>{stateLabel}</span>
+                  </span>
+                </div>
+              </div>
+              
+              <p className="text-[11px] font-bold text-slate-700 text-center mt-2 whitespace-pre-line leading-relaxed">
+                <span>{stateMessage}</span>
+              </p>
+            </div>
+          )}
+
+          {gaccStats?.estado === 'restringido' && (
+            <div className="bg-danger-50 border border-danger-200 rounded-xl p-2.5 flex items-center justify-center gap-2">
+              <i className="fa-solid fa-lock text-danger-500 text-sm" />
+              <span className="text-xs font-bold text-danger-700">Grupo Restringido</span>
+            </div>
+          )}
         </div>
 
         {/* Own pending credit — read-only progress card */}
@@ -262,14 +295,30 @@ export default function Gacc() {
           </div>
         )}
 
-        {/* Members sections */}
-        <div className="space-y-2">
-          <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-            Miembros
-          </h4>
-          {members.map((member, index) => (
-            <MemberCard key={index} member={member} />
-          ))}
+        {/* Members sections (Collapsible) */}
+        <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+          <button
+            onClick={() => setIsMembersOpen(!isMembersOpen)}
+            className="w-full flex items-center justify-between"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Miembros del Grupo
+              </span>
+              <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                <span>{members.length}</span>
+              </span>
+            </div>
+            <i className={`fa-solid fa-chevron-${isMembersOpen ? 'up' : 'down'} text-slate-400 text-xs transition-transform`} />
+          </button>
+          
+          {isMembersOpen && (
+            <div className="space-y-2 pt-3 border-t border-slate-50 mt-3">
+              {members.map((member, index) => (
+                <MemberCard key={index} member={member} />
+              ))}
+            </div>
+          )}
         </div>
 
       </div>
