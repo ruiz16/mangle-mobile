@@ -33,40 +33,6 @@ const PAGO_ERROR_MESSAGES: Record<string, string> = {
 };
 
 // =============================================================================
-// Pago resiliente — persistencia del tx pendiente por cuota
-// =============================================================================
-//
-// PROBLEMA QUE RESUELVE: en producción la RPC pública puede tardar, y si
-// waitForTransactionReceipt expira asumíamos "falló" aunque la tx YA estaba
-// enviada/minada. El usuario reintentaba y PAGABA DE NUEVO.
-//
-// SOLUCIÓN: apenas la wallet devuelve un txHash, lo persistimos por cuota.
-// Si el flujo se corta (timeout, cierre de app, error de red) DESPUÉS de
-// enviar la tx, un reintento RESUME ese mismo txHash (lo registra en backend)
-// en vez de generar un pago nuevo. Se limpia solo cuando el pago queda
-// confirmado o cuando la tx revirtió de verdad.
-// =============================================================================
-
-const PENDING_TX_PREFIX = 'mangle:pendingPagoTx:';
-
-function getPendingTx(cuotaId: string): `0x${string}` | null {
-  try {
-    const v = localStorage.getItem(PENDING_TX_PREFIX + cuotaId);
-    return v && /^0x[a-fA-F0-9]{64}$/.test(v) ? (v as `0x${string}`) : null;
-  } catch {
-    return null;
-  }
-}
-
-function setPendingTx(cuotaId: string, txHash: string): void {
-  try { localStorage.setItem(PENDING_TX_PREFIX + cuotaId, txHash); } catch { /* storage lleno/bloqueado */ }
-}
-
-function clearPendingTx(cuotaId: string): void {
-  try { localStorage.removeItem(PENDING_TX_PREFIX + cuotaId); } catch { /* noop */ }
-}
-
-// =============================================================================
 // Repayment — COPm Payment Page
 // =============================================================================
 //
@@ -322,122 +288,72 @@ export default function Repayment() {
 
     setPayingCuotaId(cuota.id);
 
-    const refrescar = () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.creditos });
-      queryClient.invalidateQueries({ queryKey: queryKeys.cuotas });
-      queryClient.invalidateQueries({ queryKey: queryKeys.score });
-    };
-
     try {
-      // ── 0. RESUME ───────────────────────────────────────────────────────
-      // Si ya hay un tx enviado para esta cuota (intento previo que no llegó
-      // a confirmarse), lo retomamos: NO se paga de nuevo.
-      let txHash = getPendingTx(cuota.id);
+      showToast(
+        'Enviando',
+        cuota.credito_repayment_mode === 'pool'
+          ? 'Confirmá DOS transacciones en tu wallet (autorización + pago).'
+          : 'Confirmá la transacción en tu wallet.',
+        'info',
+      );
 
-      if (!txHash) {
-        showToast(
-          'Enviando',
-          cuota.credito_repayment_mode === 'pool'
-            ? 'Confirmá DOS transacciones en tu wallet (autorización + pago).'
-            : 'Confirmá la transacción en tu wallet.',
-          'info',
+      let txHash: `0x${string}`;
+      if (cuota.credito_repayment_mode === 'pool') {
+        const creditId = keccak256(stringToHex(cuota.credito_id));
+        txHash = await wallet.repayCopm(
+          pagoConfig.lendingPoolAddress,
+          creditId,
+          cuota.monto_cuota,
+          state.walletAddress as Address,
         );
-
-        if (cuota.credito_repayment_mode === 'pool') {
-          const creditId = keccak256(stringToHex(cuota.credito_id));
-          txHash = await wallet.repayCopm(
-            pagoConfig.lendingPoolAddress,
-            creditId,
-            cuota.monto_cuota,
-            state.walletAddress as Address,
-          );
-        } else {
-          txHash = await wallet.sendCopm(
-            pagoConfig.platformWallet as Address,
-            cuota.monto_cuota,
-            state.walletAddress as Address,
-          );
-        }
-
-        // ⚠️ CLAVE: persistir el txHash APENAS lo tenemos. A partir de acá,
-        // cualquier corte (timeout, cierre de app, red) RESUME — no re-paga.
-        setPendingTx(cuota.id, txHash);
       } else {
-        showToast(
-          'Reanudando',
-          'Retomamos un pago anterior que quedó sin confirmar. No se te cobra de nuevo.',
-          'info',
+        txHash = await wallet.sendCopm(
+          pagoConfig.platformWallet as Address,
+          cuota.monto_cuota,
+          state.walletAddress as Address,
         );
       }
 
       showToast('Verificando', 'Transacción enviada. Esperando confirmación on-chain.', 'info');
 
-      // ── 2. Esperar el recibo — pero un TIMEOUT NO significa "falló" ───────
+      // 2. Wait for the transaction to be confirmed on-chain
       const publicClient = createPublicClient({
         chain: getActiveChain(),
         transport: getActiveTransport(),
       });
 
-      let receiptStatus: 'success' | 'reverted' | 'unknown' = 'unknown';
-      try {
-        const receipt = await publicClient.waitForTransactionReceipt({
-          hash: txHash,
-          timeout: 90_000,
-        });
-        receiptStatus = receipt.status === 'success' ? 'success' : 'reverted';
-      } catch {
-        // RPC lenta / timeout: no sabemos el resultado. Dejamos que el backend
-        // (que re-verifica on-chain con su propia RPC) sea la autoridad final.
-        receiptStatus = 'unknown';
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash,
+        timeout: 60_000, // 60s max wait
+      });
+
+      console.log('[Payment] Receipt: ', receipt);
+
+      if (receipt.status !== 'success') {
+        throw new Error('La transacción fue revertida en la blockchain, revisa que tengas suficiente saldo en tu wallet');
       }
 
-      if (receiptStatus === 'reverted') {
-        // Revirtió de verdad (p. ej. allowance consumido por otra tx). Limpiamos
-        // el pendiente para permitir un pago NUEVO en el próximo intento.
-        clearPendingTx(cuota.id);
-        throw new Error('La transacción fue revertida en la blockchain. Revisá tu saldo e intentá de nuevo.');
-      }
+      // 3. Register payment in backend
+      await apiPost<{ status: string; cuota_id: string; credito_id: string }>(
+        '/api/pago',
+        { cuota_id: cuota.id, tx_hash: txHash },
+        {
+          token: authToken,
+          refreshToken: state.refreshToken,
+          onTokenRefresh: refreshTokens,
+        },
+      );
 
-      // ── 3. Registrar en backend (autoridad final: re-verifica on-chain) ──
-      try {
-        await apiPost<{ status: string; cuota_id: string; credito_id: string }>(
-          '/api/pago',
-          { cuota_id: cuota.id, tx_hash: txHash },
-          { token: authToken, refreshToken: state.refreshToken, onTokenRefresh: refreshTokens },
-        );
-      } catch (apiErr) {
-        if (apiErr instanceof ApiRequestError) {
-          // Ya estaba contabilizada → éxito idempotente (limpiar + refrescar).
-          if (apiErr.code === 'YA_PAGADA' || apiErr.code === 'YA_PAGADO' || apiErr.code === 'TX_HASH_DUPLICADO') {
-            clearPendingTx(cuota.id);
-            refrescar();
-            showToast('Pago confirmado', `La cuota #${cuota.numero_cuota} ya estaba registrada.`, 'success');
-            return;
-          }
-          // Todavía no minada/propagada → conservamos el tx para reanudar.
-          if (apiErr.code === 'TX_NO_ENCONTRADA') {
-            showToast(
-              'Confirmando…',
-              'El pago se está confirmando en la red. Volvé a tocar "Pagar" en unos segundos para finalizar — NO se te cobra de nuevo.',
-              'info',
-            );
-            return;
-          }
-          // El backend confirma que revirtió → limpiar para reintento fresco.
-          if (apiErr.code === 'TX_REVERTIDA') {
-            clearPendingTx(cuota.id);
-          }
-        }
-        throw apiErr;
-      }
-
-      // ── 4. Éxito: limpiar pendiente + refrescar ──────────────────────────
-      clearPendingTx(cuota.id);
-      refrescar();
+      // 4. Invalidar server-state: cuotas y estado del crédito se refrescan
+      // solos (al pagar la última cuota → 'pagado'). Reemplaza el sync manual.
+      queryClient.invalidateQueries({ queryKey: queryKeys.creditos });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cuotas });
+      // 5. Refrescar el score (reputación) — se recalcula tras el pago.
+      queryClient.invalidateQueries({ queryKey: queryKeys.score });
 
       showToast(
         '¡Pago Exitoso!',
-        `Cuota #${cuota.numero_cuota} pagada en la blockchain. Tx: ${txHash.slice(0, 10)}…`,
+        `Cuota #${cuota.numero_cuota} pagada en la blockchain. Tx: ${txHash.slice(0, 6)}}`,
         'success',
       );
     } catch (err: any) {
