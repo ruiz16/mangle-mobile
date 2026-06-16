@@ -17,12 +17,13 @@ import type {
   AuthStep,
 } from '../types';
 import { createDefaultState } from '../types';
+import { mangleStorage } from '../lib/storage';
 
 const STORAGE_KEY = 'mangle:state';
 
 function loadSavedState(): AppState {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = mangleStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object' && 'walletConnected' in parsed) {
@@ -31,13 +32,13 @@ function loadSavedState(): AppState {
       }
     }
   } catch {
-    // localStorage corrupto, lleno o inexistente — usar default
+    // storage corrupto, lleno o inexistente — usar default
   }
   return createDefaultState();
 }
 
 // Sólo el slice de SESIÓN se persiste. Los datos del servidor viven en
-// TanStack Query y NUNCA tocan localStorage (evita el bug de staleness).
+// TanStack Query y NUNCA tocan storage (evita el bug de staleness).
 const SESSION_KEYS = [
   'walletConnected',
   'walletAddress',
@@ -50,7 +51,7 @@ const SESSION_KEYS = [
 ] as const satisfies readonly (keyof AppState)[];
 
 function saveState(state: AppState): void {
-  const raw = localStorage.getItem(STORAGE_KEY);
+  const raw = mangleStorage.getItem(STORAGE_KEY);
   if (raw) {
     try {
       const saved = JSON.parse(raw);
@@ -63,7 +64,7 @@ function saveState(state: AppState): void {
   for (const key of SESSION_KEYS) {
     (session as Record<string, unknown>)[key] = state[key];
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  mangleStorage.setItem(STORAGE_KEY, JSON.stringify(session));
 }
 
 // ---------------------------------------------------------------------------
@@ -158,16 +159,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   // ---------- Reset ----------
 
   const resetState = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
+    mangleStorage.removeItem(STORAGE_KEY);
     setState(createDefaultState());
   }, []);
-
-  // ---------- Dev / Alert triggers ----------
-  //
-  // La simulación de alerta de nodo ya NO vive en estado local: el panel Dev
-  // llama a POST /api/dev/alerta y /resolver (ver src/queries/dev.ts), que
-  // mutan datos reales. La alerta visible al usuario es PERSONALIZADA por
-  // relación con la mora — ver useMiAlerta en src/queries/gacc.ts.
 
   const showErrorModal = useCallback((title: string, message: string) => {
     setState((prev) => ({ ...prev, errorModal: { title, message } }));
