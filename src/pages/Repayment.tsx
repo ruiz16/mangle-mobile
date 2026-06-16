@@ -101,48 +101,43 @@ function groupByCredit(cuotas: ApiCuota[]): CuotaGrouped[] {
 }
 
 // =============================================================================
-// Logo animado para estado "En Evaluación"
-// Efecto: anillos de pulse suaves + logo con grow
+// Logo animado — sin card, logo grande directo con anillos de pulse
 // =============================================================================
 function LogoEvaluacion() {
   return (
-    <div className="flex justify-center items-center py-2">
-      <div className="relative flex items-center justify-center w-44 h-44">
-        {/* Anillo exterior — pulse lento */}
+    <div className="flex justify-center items-center py-4">
+      <div className="relative flex items-center justify-center w-52 h-52">
+        {/* Anillo exterior — ping lento */}
         <div
-          className="absolute w-44 h-44 rounded-full"
+          className="absolute w-52 h-52 rounded-full"
           style={{
             background: 'radial-gradient(circle, rgba(91,140,90,0.10) 0%, transparent 70%)',
-            animation: 'ping 2.5s cubic-bezier(0,0,0.2,1) infinite',
+            animation: 'ping 2.8s cubic-bezier(0,0,0.2,1) infinite',
           }}
         />
         {/* Anillo medio */}
         <div
-          className="absolute w-36 h-36 rounded-full"
+          className="absolute w-40 h-40 rounded-full"
           style={{
-            background: 'radial-gradient(circle, rgba(91,140,90,0.13) 0%, transparent 70%)',
-            animation: 'pulse 2s ease-in-out infinite',
+            background: 'radial-gradient(circle, rgba(91,140,90,0.15) 0%, transparent 70%)',
+            animation: 'pulse 2.2s ease-in-out infinite',
           }}
         />
         {/* Anillo interior */}
         <div
           className="absolute w-28 h-28 rounded-full"
           style={{
-            background: 'radial-gradient(circle, rgba(91,140,90,0.18) 0%, transparent 70%)',
-            animation: 'pulse 1.8s ease-in-out infinite 0.3s',
+            background: 'radial-gradient(circle, rgba(91,140,90,0.22) 0%, transparent 70%)',
+            animation: 'pulse 1.9s ease-in-out infinite 0.4s',
           }}
         />
-        {/* Logo — grow suave */}
-        <div
-          className="relative z-10 w-20 h-20 bg-white rounded-full shadow-lg flex items-center justify-center"
+        {/* Logo — grande, sin card, pulse suave */}
+        <img
+          src={logoMangle}
+          alt="MANGLE"
+          className="relative z-10 w-32 h-32 object-contain"
           style={{ animation: 'pulse 3s ease-in-out infinite' }}
-        >
-          <img
-            src={logoMangle}
-            alt="MANGLE"
-            className="w-14 h-14 object-contain"
-          />
-        </div>
+        />
       </div>
     </div>
   );
@@ -181,23 +176,16 @@ function CreditGroup({ group, payingCuotaId, onPay, isHistory }: CreditGroupProp
             <span className={`text-[9px] uppercase tracking-wider ${isHistory ? 'text-slate-300' : 'text-emerald-200'}`}>
               {group.descripcion ?? 'Ciclo de Crédito'}
             </span>
-            <h4 className="text-2xl font-black mt-0.5">
-              {formatCopm(group.monto)}
-            </h4>
+            <h4 className="text-2xl font-black mt-0.5">{formatCopm(group.monto)}</h4>
             <span className={`text-[9px] ${isHistory ? 'text-slate-300' : 'text-emerald-300'}`}>
               {(() => {
-                const totalInteres = group.cuotas.reduce(
-                  (sum, c) => sum + Number(c.monto_interes),
-                  0,
-                );
+                const totalInteres = group.cuotas.reduce((sum, c) => sum + Number(c.monto_interes), 0);
                 return `+ ${formatCopm(totalInteres.toString())} intereses`;
               })()}
             </span>
           </div>
           <div className="flex flex-col items-end justify-between self-stretch text-right">
-            <span className="text-[9px] bg-white/20 px-2 py-0.5 rounded font-mono">
-              {headerLabel()}
-            </span>
+            <span className="text-[9px] bg-white/20 px-2 py-0.5 rounded font-mono">{headerLabel()}</span>
             {group.referadoraNombre && (
               <span className={`text-[9px] inline-flex items-center gap-1 ${isHistory ? 'text-slate-300' : 'text-emerald-200'}`}>
                 <i className="fa-solid fa-handshake-angle text-[10px]" />
@@ -242,9 +230,7 @@ function CreditGroup({ group, payingCuotaId, onPay, isHistory }: CreditGroupProp
                           <i className="fa-solid fa-circle-check" /> Pagada
                         </span>
                       ) : isPastDue ? (
-                        <span className="text-[9px] font-bold text-danger-600 bg-danger-50 px-2 py-0.5 rounded-full">
-                          Vencida
-                        </span>
+                        <span className="text-[9px] font-bold text-danger-600 bg-danger-50 px-2 py-0.5 rounded-full">Vencida</span>
                       ) : (
                         <span className="text-[9px] text-slate-400">
                           {daysLeft > 0 ? `En ${daysLeft} días` : 'Vence hoy'}
@@ -267,18 +253,14 @@ function CreditGroup({ group, payingCuotaId, onPay, isHistory }: CreditGroupProp
                             : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
                       }`}
                     >
-                      {isPaying ? (
-                        <><i className="fa-solid fa-spinner fa-spin" /> Pagando</>
-                      ) : (
-                        <><i className="fa-solid fa-money-bill-transfer" /> Pagar</>
-                      )}
+                      {isPaying
+                        ? <><i className="fa-solid fa-spinner fa-spin" /> Pagando</>
+                        : <><i className="fa-solid fa-money-bill-transfer" /> Pagar</>}
                     </button>
                   )}
                 </div>
                 {isPaid && cuota.tx_hash_pago && (
-                  <p className="text-[8px] text-slate-400 mt-1 font-mono truncate">
-                    Tx: {cuota.tx_hash_pago}
-                  </p>
+                  <p className="text-[8px] text-slate-400 mt-1 font-mono truncate">Tx: {cuota.tx_hash_pago}</p>
                 )}
               </div>
             );
@@ -308,22 +290,14 @@ export default function Repayment() {
   const { estado: creditEstado, isLoading: creditLoading } = useCreditoActivo();
   const cuotas = cuotasData?.cuotas ?? [];
   const error = isError ? 'No se pudo cargar tu información de pagos.' : null;
-
   const authToken = state.authToken;
 
   const handlePay = useCallback(async (cuota: ApiCuota) => {
     if (payingCuotaId) return;
-    if (!pagoConfig) {
-      showToast('Error', 'No se pudo obtener la configuración de pago', 'error');
-      return;
-    }
-    if (!state.walletAddress) {
-      showToast('Error', 'Conectá tu wallet primero', 'error');
-      return;
-    }
+    if (!pagoConfig) { showToast('Error', 'No se pudo obtener la configuración de pago', 'error'); return; }
+    if (!state.walletAddress) { showToast('Error', 'Conectá tu wallet primero', 'error'); return; }
 
     setPayingCuotaId(cuota.id);
-
     const refrescar = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.creditos });
       queryClient.invalidateQueries({ queryKey: queryKeys.cuotas });
@@ -334,52 +308,29 @@ export default function Repayment() {
       let txHash = getPendingTx(cuota.id);
 
       if (!txHash) {
-        showToast(
-          'Enviando',
+        showToast('Enviando',
           cuota.credito_repayment_mode === 'pool'
             ? 'Confirmá DOS transacciones en tu wallet (autorización + pago).'
             : 'Confirmá la transacción en tu wallet.',
-          'info',
-        );
+          'info');
 
         if (cuota.credito_repayment_mode === 'pool') {
           const creditId = keccak256(stringToHex(cuota.credito_id));
-          txHash = await wallet.repayCopm(
-            pagoConfig.lendingPoolAddress,
-            creditId,
-            cuota.monto_cuota,
-            state.walletAddress as Address,
-          );
+          txHash = await wallet.repayCopm(pagoConfig.lendingPoolAddress, creditId, cuota.monto_cuota, state.walletAddress as Address);
         } else {
-          txHash = await wallet.sendCopm(
-            pagoConfig.platformWallet as Address,
-            cuota.monto_cuota,
-            state.walletAddress as Address,
-          );
+          txHash = await wallet.sendCopm(pagoConfig.platformWallet as Address, cuota.monto_cuota, state.walletAddress as Address);
         }
-
         setPendingTx(cuota.id, txHash);
       } else {
-        showToast(
-          'Reanudando',
-          'Retomamos un pago anterior que quedó sin confirmar. No se te cobra de nuevo.',
-          'info',
-        );
+        showToast('Reanudando', 'Retomamos un pago anterior que quedó sin confirmar. No se te cobra de nuevo.', 'info');
       }
 
       showToast('Verificando', 'Transacción enviada. Esperando confirmación on-chain.', 'info');
 
-      const publicClient = createPublicClient({
-        chain: getActiveChain(),
-        transport: getActiveTransport(),
-      });
-
+      const publicClient = createPublicClient({ chain: getActiveChain(), transport: getActiveTransport() });
       let receiptStatus: 'success' | 'reverted' | 'unknown' = 'unknown';
       try {
-        const receipt = await publicClient.waitForTransactionReceipt({
-          hash: txHash,
-          timeout: 90_000,
-        });
+        const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, timeout: 90_000 });
         receiptStatus = receipt.status === 'success' ? 'success' : 'reverted';
       } catch {
         receiptStatus = 'unknown';
@@ -398,35 +349,23 @@ export default function Repayment() {
         );
       } catch (apiErr) {
         if (apiErr instanceof ApiRequestError) {
-          if (apiErr.code === 'YA_PAGADA' || apiErr.code === 'YA_PAGADO' || apiErr.code === 'TX_HASH_DUPLICADO') {
-            clearPendingTx(cuota.id);
-            refrescar();
+          if (['YA_PAGADA', 'YA_PAGADO', 'TX_HASH_DUPLICADO'].includes(apiErr.code)) {
+            clearPendingTx(cuota.id); refrescar();
             showToast('Pago confirmado', `La cuota #${cuota.numero_cuota} ya estaba registrada.`, 'success');
             return;
           }
           if (apiErr.code === 'TX_NO_ENCONTRADA') {
-            showToast(
-              'Confirmando…',
-              'El pago se está confirmando en la red. Volvé a tocar "Pagar" en unos segundos para finalizar — NO se te cobra de nuevo.',
-              'info',
-            );
+            showToast('Confirmando…', 'El pago se está confirmando en la red. Volvé a tocar "Pagar" en unos segundos — NO se te cobra de nuevo.', 'info');
             return;
           }
-          if (apiErr.code === 'TX_REVERTIDA') {
-            clearPendingTx(cuota.id);
-          }
+          if (apiErr.code === 'TX_REVERTIDA') clearPendingTx(cuota.id);
         }
         throw apiErr;
       }
 
       clearPendingTx(cuota.id);
       refrescar();
-
-      showToast(
-        '¡Pago Exitoso!',
-        `Cuota #${cuota.numero_cuota} pagada en la blockchain. Tx: ${txHash.slice(0, 10)}…`,
-        'success',
-      );
+      showToast('¡Pago Exitoso!', `Cuota #${cuota.numero_cuota} pagada en la blockchain. Tx: ${txHash.slice(0, 10)}…`, 'success');
     } catch (err: any) {
       const msg = err instanceof ApiRequestError
         ? (PAGO_ERROR_MESSAGES[err.code] ?? err.message)
@@ -472,9 +411,7 @@ export default function Repayment() {
     );
   }
 
-  // ------------------------------------------------------------------
-  // Crédito en evaluación — logo animado con pulse suave
-  // ------------------------------------------------------------------
+  // Crédito en evaluación — logo grande sin card con pulse
   if (!isLoading && !hasCredits && creditEstado === 'pendiente') {
     return (
       <div className="flex-1 flex flex-col bg-gradient-to-b from-surface-light to-surface">
@@ -563,16 +500,9 @@ export default function Repayment() {
                 </div>
               </div>
             )}
-
             {activeGroup && (
-              <CreditGroup
-                group={activeGroup}
-                payingCuotaId={payingCuotaId}
-                onPay={handlePay}
-                isHistory={false}
-              />
+              <CreditGroup group={activeGroup} payingCuotaId={payingCuotaId} onPay={handlePay} isHistory={false} />
             )}
-
             {historicalGroups.length > 0 && (
               <div>
                 <button
@@ -588,13 +518,7 @@ export default function Repayment() {
                 {historyOpen && (
                   <div className="mt-3 space-y-4">
                     {historicalGroups.map((group) => (
-                      <CreditGroup
-                        key={group.credito_id}
-                        group={group}
-                        payingCuotaId={null}
-                        onPay={null}
-                        isHistory
-                      />
+                      <CreditGroup key={group.credito_id} group={group} payingCuotaId={null} onPay={null} isHistory />
                     ))}
                   </div>
                 )}
@@ -609,9 +533,7 @@ export default function Repayment() {
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
             <i className="fa-solid fa-plug text-amber-600 text-base block mb-1" />
             <p className="text-[11px] font-bold text-amber-800">Conectá tu Wallet</p>
-            <p className="text-[10px] text-amber-600 mt-1">
-              Necesitás conectar tu wallet para pagar cuotas en la blockchain.
-            </p>
+            <p className="text-[10px] text-amber-600 mt-1">Necesitás conectar tu wallet para pagar cuotas en la blockchain.</p>
           </div>
         </div>
       )}
