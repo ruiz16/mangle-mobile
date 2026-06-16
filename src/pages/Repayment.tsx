@@ -135,7 +135,7 @@ function LogoEvaluacion() {
         <img
           src={logoMangle}
           alt="MANGLE"
-          className="relative z-10 w-32 h-32 object-contain"
+          className="relative z-10 w-64 h-64 object-contain"
           style={{ animation: 'pulse 3s ease-in-out infinite' }}
         />
       </div>
