@@ -7,6 +7,9 @@
 //
 // Si la wallet no está conectada o está en una red no reconocida, se usa
 // el fallback estático de VITE_CELO_NETWORK.
+//
+// FEE ABSTRACTION: todas las transacciones usan feeCurrency = copmAddress
+// para que las usuarias paguen el gas en COPm sin necesitar CELO nativo.
 // =============================================================================
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -68,43 +71,19 @@ const LENDING_POOL_ABI = [
   },
 ] as const;
 
-// Static fallback (compile-time) — se usa solo como default cuando la wallet
-// no está conectada. Las funciones connect() y sendCopm() resuelven las
-// direcciones dinámicamente al ejecutarse.
 const ACTIVE_CHAIN = getActiveChain();
 
 export interface UseMiniPayReturn {
-  /** True if running inside MiniPay WebView */
   isMiniPay: boolean;
-  /** True if any EIP-1193 provider is available */
   isAvailable: boolean;
-  /** Connected wallet address */
   address: Address | null;
-  /** COPm balance as raw bigint (18 decimals) */
   copmBalance: bigint | null;
-  /** COPm balance formatted as string (e.g. "12.50") */
   copmFormatted: string | null;
-  /** Whether a connection is in progress */
   isConnecting: boolean;
-  /** Last error message, if any */
   error: string | null;
-  /** Connect to wallet — throws if fails */
   connect: () => Promise<{ address: Address; copmBalance: bigint }>;
-  /** Sign a SIWE message with personal_sign — throws if fails */
   signMessage: (message: string, signerAddress: Address) => Promise<`0x${string}`>;
-  /**
-   * Send COPm via ERC-20 transfer to a destination address.
-   * Returns the transaction hash.
-   *
-   * @param to - Recipient address (platform wallet)
-   * @param amountCopm - Amount in COPm (decimal string, e.g. "100000.00")
-   * @param from - The sender's wallet address (must be connected)
-   */
   sendCopm: (to: Address, amountCopm: string, from: Address) => Promise<`0x${string}`>;
-  /**
-   * Repaga un crédito vía LendingPool: approve(pool, amount) + repay(creditId, amount).
-   * Devuelve el hash de la tx de repay. Requiere 2 confirmaciones en la wallet.
-   */
   repayCopm: (
     poolAddress: Address,
     creditId: `0x${string}`,
@@ -119,7 +98,6 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Stable ref so the disconnect callback never needs to be in effect deps
   const onDisconnectRef = useRef(options?.onDisconnect);
   useEffect(() => {
     onDisconnectRef.current = options?.onDisconnect;
@@ -131,9 +109,6 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
 
   const copmFormatted = copmBalance !== null ? formatUnits(copmBalance, 18) : null;
 
-  // --------------------------------------------------------------------------
-  // Listen for account changes (MetaMask account switch, MiniPay re-grant, etc.)
-  // --------------------------------------------------------------------------
   useEffect(() => {
     if (!provider) return;
 
@@ -169,9 +144,6 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
     };
   }, [provider]);
 
-  // --------------------------------------------------------------------------
-  // Helper: create a wallet client from the current provider
-  // --------------------------------------------------------------------------
   const getWalletClient = useCallback(() => {
     if (!provider) {
       throw new Error('No se encontró una wallet. Instalá MetaMask o abrí esta app en MiniPay.');
@@ -182,9 +154,6 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
     });
   }, [provider]);
 
-  // --------------------------------------------------------------------------
-  // Connect
-  // --------------------------------------------------------------------------
   const connect = useCallback(async (): Promise<{ address: Address; copmBalance: bigint }> => {
     setError(null);
     setIsConnecting(true);
@@ -194,33 +163,23 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
         throw new Error('No se encontró una wallet. Instalá MetaMask o abrí esta app en MiniPay.');
       }
 
-      // 1. Create wallet client with the browser provider
       const walletClient = getWalletClient();
-
-      // 2. Request accounts — eth_requestAccounts: opens MetaMask popup
       const [connectedAddress] = await walletClient.requestAddresses();
       if (!connectedAddress) {
         throw new Error('No se obtuvo acceso a la wallet. Rechazaste la conexión o la wallet no respondió.');
       }
 
-      // 3. Try to switch chain to Celo if not already
       try {
         await walletClient.switchChain({ id: ACTIVE_CHAIN.id });
       } catch (switchErr: any) {
-        // 4902 = chain not in MetaMask, try to add it
         if (switchErr?.code === 4902) {
           await walletClient.addChain({ chain: ACTIVE_CHAIN });
-        } else if (switchErr?.code !== 4001) {
-          // 4001 = user rejected chain switch — ignore, might already be on Celo
-          // MiniPay may not support switchChain — ignore silently
         }
       }
 
-      // 4. Detectar chainId REAL y resolver direcciones de contrato
       const chainId = await walletClient.getChainId().catch(() => ACTIVE_CHAIN.id);
       const { copmAddress } = resolveContractAddresses(chainId);
 
-      // 5. Read COPm balance desde la dirección correcta según la red
       const publicClient = createPublicClient({
         chain: ACTIVE_CHAIN,
         transport: getActiveTransport(),
@@ -247,26 +206,21 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
     }
   }, [provider]);
 
-  // --------------------------------------------------------------------------
-  // Sign a SIWE message with personal_sign
-  // --------------------------------------------------------------------------
   const signMessage = useCallback(async (message: string, signerAddress: Address): Promise<`0x${string}`> => {
     if (!signerAddress) {
       throw new Error('Primero conectá tu wallet.');
     }
-
     const walletClient = getWalletClient();
-
     const signature = await walletClient.signMessage({
       account: signerAddress,
       message,
     });
-
     return signature;
   }, [getWalletClient]);
 
   // --------------------------------------------------------------------------
   // Send COPm via ERC-20 transfer
+  // feeCurrency = copmAddress → gas pagado en COPm, sin CELO nativo
   // --------------------------------------------------------------------------
   const sendCopm = useCallback(async (
     to: Address,
@@ -277,7 +231,6 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
       throw new Error('No se encontró una wallet.');
     }
 
-    // 1. Switch to Celo before doing anything
     const switchClient = createWalletClient({ chain: ACTIVE_CHAIN, transport: custom(provider) });
     try {
       await switchClient.switchChain({ id: ACTIVE_CHAIN.id });
@@ -286,38 +239,33 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
         await switchClient.addChain({ chain: ACTIVE_CHAIN });
         await switchClient.switchChain({ id: ACTIVE_CHAIN.id });
       }
-      // 4001 (user rejected) or MiniPay (no switchChain) — continue anyway
     }
 
-    // 2. Resolve contract address from actual chain
     const chainId = await switchClient.getChainId().catch(() => ACTIVE_CHAIN.id);
     const { copmAddress } = resolveContractAddresses(chainId);
-
-    // 3. Convert decimal COPm string to wei (18 decimals)
     const amountWei = parseUnits(String(amountCopm), 18);
 
-    // 4. Encode ERC-20 transfer calldata
     const data = encodeFunctionData({
       abi: ERC20_ABI,
       functionName: 'transfer',
       args: [to, amountWei],
     });
 
-    // 5. Fetch the current account from the provider at send time — avoids
-    //    "from should be same as current address" if state.walletAddress is stale.
     const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
     const currentFrom = (accounts[0] ?? from) as Address;
 
+    // ✅ feeCurrency: gas pagado en COPm — sin CELO nativo requerido
     const txHash = await provider.request({
       method: 'eth_sendTransaction',
-      params: [{ from: currentFrom, to: copmAddress, data }],
+      params: [{ from: currentFrom, to: copmAddress, data, feeCurrency: copmAddress }],
     }) as `0x${string}`;
 
     return txHash;
   }, [provider]);
 
   // --------------------------------------------------------------------------
-  // Repay COPm via LendingPool: approve(pool, amount) + repay(creditId, amount)
+  // Repay COPm via LendingPool: approve + repay
+  // feeCurrency = copmAddress en ambas txs → sin CELO nativo requerido
   // --------------------------------------------------------------------------
   const repayCopm = useCallback(async (
     poolAddress: Address,
@@ -346,7 +294,7 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
 
     const publicClient = createPublicClient({ chain: ACTIVE_CHAIN, transport: getActiveTransport() });
 
-    // 1. Aprobar solo si el allowance actual no alcanza (evita tx innecesaria).
+    // 1. Approve si el allowance no alcanza
     const currentAllowance = await publicClient.readContract({
       address: copmAddress,
       abi: ERC20_ABI,
@@ -360,20 +308,19 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
         functionName: 'approve',
         args: [poolAddress, amountWei],
       });
+
+      // ✅ feeCurrency: gas del approve pagado en COPm
       const approveTx = await provider.request({
         method: 'eth_sendTransaction',
-        params: [{ from: currentFrom, to: copmAddress, data: approveData }],
+        params: [{ from: currentFrom, to: copmAddress, data: approveData, feeCurrency: copmAddress }],
       }) as `0x${string}`;
 
-      // Confirmar que el approve quedó minado Y exitoso (waitForTransactionReceipt
-      // NO lanza si revirtió: devuelve status 'reverted').
       const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveTx, timeout: 60_000 });
       if (approveReceipt.status !== 'success') {
         throw new Error('La aprobación de COPm falló. Reintenta el pago.');
       }
 
-      // Esperar a que el allowance se refleje on-chain ANTES del repay para
-      // eliminar el race con la simulación de la wallet.
+      // Esperar que el allowance se refleje on-chain
       for (let i = 0; i < 15; i++) {
         const a = await publicClient.readContract({
           address: copmAddress,
@@ -393,9 +340,11 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
       functionName: 'repay',
       args: [creditId, amountWei],
     });
+
+    // ✅ feeCurrency: gas del repay pagado en COPm
     const repayTx = await provider.request({
       method: 'eth_sendTransaction',
-      params: [{ from: currentFrom, to: poolAddress, data: repayData }],
+      params: [{ from: currentFrom, to: poolAddress, data: repayData, feeCurrency: copmAddress }],
     }) as `0x${string}`;
 
     return repayTx;
