@@ -5,9 +5,9 @@
 // Orchestrates the complete authentication flow:
 //   1. checking_session    — validate stored JWT via /api/participantes/me
 //   2. connecting_wallet   — eth_accounts (silent) → eth_requestAccounts
-//   3. fetching_nonce      — GET /api/auth/nonce
-//   4. signing             — personal_sign (user prompt)
-//   5. exchanging          — POST /api/auth/siwe → get JWT
+//   3. fetching_nonce      — GET /api/auth/nonce (MetaMask only)
+//   4. signing             — personal_sign (MetaMask only)
+//   5. exchanging          — POST /api/auth/minipay OR /api/auth/siwe → JWT
 //   6. authenticated ✅
 //
 // Guards against infinite re-triggering:
@@ -15,6 +15,14 @@
 //   - Wallet address change resets the guard (account switch)
 //   - `retry()` must be called explicitly to reset from error state
 //   - In-progress steps (connecting_wallet..exchanging) suppress re-runs
+//
+// FIX (race condition MiniPay):
+//   isMiniPay se lee DIRECTO del provider dentro de runAuthFlow, no desde
+//   el closure del useCallback. En el primer render, window.ethereum puede
+//   no tener aún isMiniPay=true aunque estemos dentro de MiniPay WebView,
+//   lo que hacía que el flow fuera al path SIWE (personal_sign) que MiniPay
+//   no soporta. Al leerlo en el momento de ejecutar el flow, siempre tenemos
+//   el valor correcto.
 // =============================================================================
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -41,7 +49,7 @@ export function useAuth() {
     connectWallet,
   } = useAppState();
 
-  const { address: walletAddress, isMiniPay, isAvailable, signMessage } = useMiniPay();
+  const { address: walletAddress, isAvailable, signMessage } = useMiniPay();
 
   // ── Local state (avoids stale closure issues with global state) ──────────
   const [step, setStep] = useState<AuthStep>(state.authStep);
@@ -97,10 +105,14 @@ export function useAuth() {
   //
   // Executed ONCE on mount (and again if guard resets). Every setStep() call
   // triggers the main effect below, but the guard prevents re-entry.
+  //
+  // IMPORTANTE: isMiniPay se lee DIRECTO del provider aquí dentro, no desde
+  // el closure. Esto evita el race condition donde el primer render no tiene
+  // aún window.ethereum.isMiniPay=true inyectado por el WebView de MiniPay.
   // ────────────────────────────────────────────────────────────────────────────
   const runAuthFlow = useCallback(async () => {
     if (guard.current.isRunning) return;
-    
+
     // 🔒 LOCK: prevent any re-entry until retry() is called
     guard.current.attempted = true;
     guard.current.isRunning = true;
@@ -130,7 +142,7 @@ export function useAuth() {
             // guard.attempted stays true; the effect won't re-trigger.
             // Execution continues below inside the same async context.
           } else if (err instanceof ApiRequestError && err.status === 404) {
-            // 🆕 Token is valid, but user hasn't completed onboarding yet.
+            // Token is valid, but user hasn't completed onboarding yet.
             // Don't clear the token — the Register page needs it.
             setStep('authenticated');
             return;
@@ -156,6 +168,10 @@ export function useAuth() {
       if (!provider) {
         throw new Error('No se encontró una wallet. Abrí esta app en MiniPay.');
       }
+
+      // ✅ FIX: leer isMiniPay directo del provider en este momento,
+      // no desde el closure del useCallback (puede ser stale en el primer render).
+      const currentIsMiniPay = !!(provider as any)?.isMiniPay;
 
       let address: string;
       try {
@@ -186,7 +202,7 @@ export function useAuth() {
       // MetaMask uses the full SIWE flow.
       // ─────────────────────────────────────────────────────────────
 
-      if (isMiniPay) {
+      if (currentIsMiniPay) {
         // ── MiniPay path: address-only auth ─────────────────────────
         setStep('exchanging');
 
@@ -270,7 +286,8 @@ export function useAuth() {
     refreshTokens,
     clearAuth,
     connectWallet,
-    isMiniPay,
+    // ✅ isMiniPay eliminado de las dependencias — se lee directo del provider
+    //    dentro del flow para evitar el race condition del primer render.
   ]);
 
   // ── Main trigger effect ───────────────────────────────────────────────────
@@ -282,10 +299,11 @@ export function useAuth() {
   //   - runAuthFlow        : stable callback
   //   - isAuthLoading      : derived from step
   //
-  // This effect has THREE guards that prevent infinite loops:
+  // This effect has FOUR guards that prevent infinite loops:
   //   1. Already authenticated → skip
   //   2. Already mid-flow (connecting..exchanging) → skip
-  //   3. Already attempted, and address hasn't changed → skip
+  //   3. window.ethereum not yet available → skip (wait for next render)
+  //   4. Already attempted, and address hasn't changed → skip
   // ────────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     // 🛡️ GUARD 1: Already authenticated
@@ -294,10 +312,17 @@ export function useAuth() {
     // 🛡️ GUARD 2: Already in the middle of an auth step
     if (isAuthLoading) return;
 
-    // 🛡️ GUARD 3: Already attempted full auth, address hasn't changed
+    // 🛡️ GUARD 3: window.ethereum not yet injected (MiniPay WebView timing)
+    // MiniPay inyecta window.ethereum de forma asíncrona al cargar el WebView.
+    // Si no está disponible aún, esperamos al próximo render en lugar de lanzar
+    // el flow por el path SIWE incorrectamente.
+    const providerReady =
+      typeof window !== 'undefined' && !!(window as any).ethereum;
+    if (!providerReady) return;
+
+    // 🛡️ GUARD 4: Already attempted full auth, address hasn't changed
     if (guard.current.attempted) {
       const currentAddr = state.walletAddress || walletAddress;
-      // Case-insensitive: same guard as the account-switch effect above (line ~109)
       if (!currentAddr || currentAddr.toLowerCase() === guard.current.lastAddress?.toLowerCase()) return;
       // Address changed → allow re-authentication
       guard.current.attempted = false;
@@ -316,7 +341,9 @@ export function useAuth() {
   }, []);
 
   // ── Debug helpers ─────────────────────────────────────────────────────────
-  const connectorType = isMiniPay ? 'MiniPay' : isAvailable ? 'MetaMask' : 'No disponible';
+  // isMiniPay se lee directo del provider para consistencia con runAuthFlow
+  const isMiniPayNow = typeof window !== 'undefined' && !!(window as any).ethereum?.isMiniPay;
+  const connectorType = isMiniPayNow ? 'MiniPay' : isAvailable ? 'MetaMask' : 'No disponible';
 
   // =========================================================================
   // Return
