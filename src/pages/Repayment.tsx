@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../queries/client';
@@ -14,8 +14,8 @@ import { getActiveChain, getActiveTransport } from '../lib/network';
 import { apiPost, ApiRequestError } from '../lib/api';
 import { formatCopm } from '../lib/currency';
 import Lottie from 'lottie-react';
-import splashAnimation from '../assets/lottie/26187f5e-1174-11ee-993b-d7ded5bd38d2.json';
 import walletAnimation from '../assets/lottie/16a8e6c0-117a-11ee-a9de-ab7b4c8f4c79.json';
+import logoMangle from '../assets/images/Logo_Mangle.png';
 import type { ApiCuota } from '../types';
 import type { Address } from 'viem';
 
@@ -31,21 +31,6 @@ const PAGO_ERROR_MESSAGES: Record<string, string> = {
   NO_AUTENTICADO: 'Sesión expirada. Iniciá sesión de nuevo',
   ESTADO_INCORRECTO: 'La cuota no está en un estado pagable',
 };
-
-// =============================================================================
-// Pago resiliente — persistencia del tx pendiente por cuota
-// =============================================================================
-//
-// PROBLEMA QUE RESUELVE: en producción la RPC pública puede tardar, y si
-// waitForTransactionReceipt expira asumíamos "falló" aunque la tx YA estaba
-// enviada/minada. El usuario reintentaba y PAGABA DE NUEVO.
-//
-// SOLUCIÓN: apenas la wallet devuelve un txHash, lo persistimos por cuota.
-// Si el flujo se corta (timeout, cierre de app, error de red) DESPUÉS de
-// enviar la tx, un reintento RESUME ese mismo txHash (lo registra en backend)
-// en vez de generar un pago nuevo. Se limpia solo cuando el pago queda
-// confirmado o cuando la tx revirtió de verdad.
-// =============================================================================
 
 const PENDING_TX_PREFIX = 'mangle:pendingPagoTx:';
 
@@ -65,15 +50,6 @@ function setPendingTx(cuotaId: string, txHash: string): void {
 function clearPendingTx(cuotaId: string): void {
   try { localStorage.removeItem(PENDING_TX_PREFIX + cuotaId); } catch { /* noop */ }
 }
-
-// =============================================================================
-// Repayment — COPm Payment Page
-// =============================================================================
-//
-// Fetches real cuotas from GET /api/mis-cuotas, displays them grouped by
-// credit, and allows paying each pending cuota with a real on-chain COPm
-// transaction via MiniPay/MetaMask + POST /api/pago for backend registration.
-// =============================================================================
 
 function formatDate(dateStr: string): string {
   try {
@@ -118,11 +94,58 @@ function groupByCredit(cuotas: ApiCuota[]): CuotaGrouped[] {
     map.get(c.credito_id)!.cuotas.push(c);
   }
   return Array.from(map.values()).sort((a, b) => {
-    // Active credit always first
     if (a.estado === 'desembolsado') return -1;
     if (b.estado === 'desembolsado') return 1;
     return 0;
   });
+}
+
+// =============================================================================
+// Logo animado para estado "En Evaluación"
+// Efecto: anillos de pulse suaves + logo con grow
+// =============================================================================
+function LogoEvaluacion() {
+  return (
+    <div className="flex justify-center items-center py-2">
+      <div className="relative flex items-center justify-center w-44 h-44">
+        {/* Anillo exterior — pulse lento */}
+        <div
+          className="absolute w-44 h-44 rounded-full"
+          style={{
+            background: 'radial-gradient(circle, rgba(91,140,90,0.10) 0%, transparent 70%)',
+            animation: 'ping 2.5s cubic-bezier(0,0,0.2,1) infinite',
+          }}
+        />
+        {/* Anillo medio */}
+        <div
+          className="absolute w-36 h-36 rounded-full"
+          style={{
+            background: 'radial-gradient(circle, rgba(91,140,90,0.13) 0%, transparent 70%)',
+            animation: 'pulse 2s ease-in-out infinite',
+          }}
+        />
+        {/* Anillo interior */}
+        <div
+          className="absolute w-28 h-28 rounded-full"
+          style={{
+            background: 'radial-gradient(circle, rgba(91,140,90,0.18) 0%, transparent 70%)',
+            animation: 'pulse 1.8s ease-in-out infinite 0.3s',
+          }}
+        />
+        {/* Logo — grow suave */}
+        <div
+          className="relative z-10 w-20 h-20 bg-white rounded-full shadow-lg flex items-center justify-center"
+          style={{ animation: 'pulse 3s ease-in-out infinite' }}
+        >
+          <img
+            src={logoMangle}
+            alt="MANGLE"
+            className="w-14 h-14 object-contain"
+          />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ---- CreditGroup sub-component ----
@@ -145,7 +168,6 @@ function CreditGroup({ group, payingCuotaId, onPay, isHistory }: CreditGroupProp
 
   return (
     <div>
-      {/* Credit summary card */}
       <div
         className={`text-white p-4 rounded-2xl shadow-sm space-y-3 relative overflow-hidden ${
           isHistory
@@ -154,7 +176,6 @@ function CreditGroup({ group, payingCuotaId, onPay, isHistory }: CreditGroupProp
         }`}
       >
         <div className="absolute -right-8 -bottom-8 w-24 h-24 rounded-full bg-white/5" />
-
         <div className="flex justify-between items-start">
           <div>
             <span className={`text-[9px] uppercase tracking-wider ${isHistory ? 'text-slate-300' : 'text-emerald-200'}`}>
@@ -187,7 +208,6 @@ function CreditGroup({ group, payingCuotaId, onPay, isHistory }: CreditGroupProp
         </div>
       </div>
 
-      {/* Cuotas list */}
       <div className="mt-3 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="px-3.5 py-2 border-b border-slate-100 flex justify-between items-center">
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
@@ -201,7 +221,6 @@ function CreditGroup({ group, payingCuotaId, onPay, isHistory }: CreditGroupProp
             </span>
           )}
         </div>
-
         <div className="divide-y divide-slate-100">
           {group.cuotas.map((cuota) => {
             const isPending = cuota.estado === 'pendiente' || cuota.estado === 'vencida';
@@ -236,7 +255,6 @@ function CreditGroup({ group, payingCuotaId, onPay, isHistory }: CreditGroupProp
                       {formatCopm(cuota.monto_cuota)} · Vence {formatDate(cuota.fecha_vencimiento)}
                     </p>
                   </div>
-
                   {isPending && !isHistory && onPay && (
                     <button
                       onClick={() => onPay(cuota)}
@@ -250,18 +268,13 @@ function CreditGroup({ group, payingCuotaId, onPay, isHistory }: CreditGroupProp
                       }`}
                     >
                       {isPaying ? (
-                        <>
-                          <i className="fa-solid fa-spinner fa-spin" /> Pagando
-                        </>
+                        <><i className="fa-solid fa-spinner fa-spin" /> Pagando</>
                       ) : (
-                        <>
-                          <i className="fa-solid fa-money-bill-transfer" /> Pagar
-                        </>
+                        <><i className="fa-solid fa-money-bill-transfer" /> Pagar</>
                       )}
                     </button>
                   )}
                 </div>
-
                 {isPaid && cuota.tx_hash_pago && (
                   <p className="text-[8px] text-slate-400 mt-1 font-mono truncate">
                     Tx: {cuota.tx_hash_pago}
@@ -288,29 +301,18 @@ export default function Repayment() {
 
   const [payingCuotaId, setPayingCuotaId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const lottieRef = useRef<null | { setSpeed: (s: number) => void }>(null);
+  const lottieRef = useRef<null>(null);
 
-  // Server-state vía TanStack Query (única fuente de verdad).
   const { data: cuotasData, isLoading: cuotasLoading, isError } = useCuotas();
   const { data: pagoConfig, isLoading: configLoading } = usePagoConfig();
   const { estado: creditEstado, isLoading: creditLoading } = useCreditoActivo();
   const cuotas = cuotasData?.cuotas ?? [];
   const error = isError ? 'No se pudo cargar tu información de pagos.' : null;
 
-  // Speed 0.5 for the pending-credit Lottie (matches splash feel)
-  useEffect(() => {
-    if (lottieRef.current) {
-      lottieRef.current.setSpeed(0.5);
-    }
-  });
-
   const authToken = state.authToken;
 
-  // ------------------------------------------------------------------
-  // Pay a cuota
-  // ------------------------------------------------------------------
   const handlePay = useCallback(async (cuota: ApiCuota) => {
-    if (payingCuotaId) return; // already paying one
+    if (payingCuotaId) return;
     if (!pagoConfig) {
       showToast('Error', 'No se pudo obtener la configuración de pago', 'error');
       return;
@@ -329,9 +331,6 @@ export default function Repayment() {
     };
 
     try {
-      // ── 0. RESUME ───────────────────────────────────────────────────────
-      // Si ya hay un tx enviado para esta cuota (intento previo que no llegó
-      // a confirmarse), lo retomamos: NO se paga de nuevo.
       let txHash = getPendingTx(cuota.id);
 
       if (!txHash) {
@@ -359,8 +358,6 @@ export default function Repayment() {
           );
         }
 
-        // ⚠️ CLAVE: persistir el txHash APENAS lo tenemos. A partir de acá,
-        // cualquier corte (timeout, cierre de app, red) RESUME — no re-paga.
         setPendingTx(cuota.id, txHash);
       } else {
         showToast(
@@ -372,7 +369,6 @@ export default function Repayment() {
 
       showToast('Verificando', 'Transacción enviada. Esperando confirmación on-chain.', 'info');
 
-      // ── 2. Esperar el recibo — pero un TIMEOUT NO significa "falló" ───────
       const publicClient = createPublicClient({
         chain: getActiveChain(),
         transport: getActiveTransport(),
@@ -386,19 +382,14 @@ export default function Repayment() {
         });
         receiptStatus = receipt.status === 'success' ? 'success' : 'reverted';
       } catch {
-        // RPC lenta / timeout: no sabemos el resultado. Dejamos que el backend
-        // (que re-verifica on-chain con su propia RPC) sea la autoridad final.
         receiptStatus = 'unknown';
       }
 
       if (receiptStatus === 'reverted') {
-        // Revirtió de verdad (p. ej. allowance consumido por otra tx). Limpiamos
-        // el pendiente para permitir un pago NUEVO en el próximo intento.
         clearPendingTx(cuota.id);
         throw new Error('La transacción fue revertida en la blockchain. Revisá tu saldo e intentá de nuevo.');
       }
 
-      // ── 3. Registrar en backend (autoridad final: re-verifica on-chain) ──
       try {
         await apiPost<{ status: string; cuota_id: string; credito_id: string }>(
           '/api/pago',
@@ -407,14 +398,12 @@ export default function Repayment() {
         );
       } catch (apiErr) {
         if (apiErr instanceof ApiRequestError) {
-          // Ya estaba contabilizada → éxito idempotente (limpiar + refrescar).
           if (apiErr.code === 'YA_PAGADA' || apiErr.code === 'YA_PAGADO' || apiErr.code === 'TX_HASH_DUPLICADO') {
             clearPendingTx(cuota.id);
             refrescar();
             showToast('Pago confirmado', `La cuota #${cuota.numero_cuota} ya estaba registrada.`, 'success');
             return;
           }
-          // Todavía no minada/propagada → conservamos el tx para reanudar.
           if (apiErr.code === 'TX_NO_ENCONTRADA') {
             showToast(
               'Confirmando…',
@@ -423,7 +412,6 @@ export default function Repayment() {
             );
             return;
           }
-          // El backend confirma que revirtió → limpiar para reintento fresco.
           if (apiErr.code === 'TX_REVERTIDA') {
             clearPendingTx(cuota.id);
           }
@@ -431,7 +419,6 @@ export default function Repayment() {
         throw apiErr;
       }
 
-      // ── 4. Éxito: limpiar pendiente + refrescar ──────────────────────────
       clearPendingTx(cuota.id);
       refrescar();
 
@@ -450,25 +437,13 @@ export default function Repayment() {
     }
   }, [payingCuotaId, pagoConfig, state.walletAddress, state.authToken, state.refreshToken, refreshTokens, wallet, authToken, queryClient]);
 
-  // ------------------------------------------------------------------
-  // Derived
-  // ------------------------------------------------------------------
   const hasCredits = cuotas.length > 0;
   const grouped = groupByCredit(cuotas);
   const activeGroup = grouped.find((g) => g.estado === 'desembolsado') ?? null;
   const historicalGroups = grouped.filter((g) => g.estado !== 'desembolsado');
-
-  // We need a connected wallet for payment
   const walletConnected = !!state.walletAddress;
-
-  // ------------------------------------------------------------------
-  // Loading state
-  // ------------------------------------------------------------------
   const isLoading = cuotasLoading || configLoading || creditLoading;
-  
-  // ------------------------------------------------------------------
-  // Not logged in
-  // ------------------------------------------------------------------
+
   if (!authToken) {
     return (
       <div className="flex-1 flex flex-col p-5">
@@ -476,18 +451,13 @@ export default function Repayment() {
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-xs">
             <i className="fa-solid fa-user-lock text-slate-300 text-3xl mb-3" />
-            <p className="text-xs text-slate-500">
-              Iniciá sesión con tu wallet para ver tus cuotas y pagar.
-            </p>
+            <p className="text-xs text-slate-500">Iniciá sesión con tu wallet para ver tus cuotas y pagar.</p>
           </div>
         </div>
       </div>
     );
   }
 
-  // ------------------------------------------------------------------
-  // Error loading
-  // ------------------------------------------------------------------
   if (error && !hasCredits) {
     return (
       <div className="flex-1 flex flex-col p-5">
@@ -503,7 +473,7 @@ export default function Repayment() {
   }
 
   // ------------------------------------------------------------------
-  // Credit pending evaluation (no cuotas yet — waiting admin approval)
+  // Crédito en evaluación — logo animado con pulse suave
   // ------------------------------------------------------------------
   if (!isLoading && !hasCredits && creditEstado === 'pendiente') {
     return (
@@ -514,10 +484,7 @@ export default function Repayment() {
         <div className="flex-1 flex items-center justify-center p-6 -mt-10">
           <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl shadow-ink/5 p-8 space-y-6">
             <div className="flex flex-col items-center gap-4">
-              <div className="w-44 h-44">
-                {/* @ts-ignore */}
-                <Lottie lottieRef={lottieRef} animationData={splashAnimation} loop autoplay style={{ width: '100%', height: '100%' }} />
-              </div>
+              <LogoEvaluacion />
               <div className="text-center">
                 <h2 className="text-xl font-extrabold text-ink leading-tight">Crédito en Evaluación</h2>
                 <p className="text-sm text-slate-500 font-medium mt-2 leading-relaxed">
@@ -531,9 +498,6 @@ export default function Repayment() {
     );
   }
 
-  // ------------------------------------------------------------------
-  // No cuotas (no credits or all paid)
-  // ------------------------------------------------------------------
   if (!isLoading && !hasCredits) {
     return (
       <div className="flex-1 flex flex-col p-5">
@@ -553,7 +517,7 @@ export default function Repayment() {
           <div className="text-center max-w-xs flex flex-col items-center gap-3">
             <div className="w-40 h-40">
               {/* @ts-ignore */}
-              <Lottie animationData={walletAnimation} loop autoplay style={{ width: '100%', height: '100%' }} />
+              <Lottie lottieRef={lottieRef} animationData={walletAnimation} loop autoplay style={{ width: '100%', height: '100%' }} />
             </div>
             <p className="text-xs text-slate-500 font-medium">No tenés cuotas pendientes.</p>
             <p className="text-[10px] text-slate-400 mt-1">Todas tus cuotas están al día.</p>
@@ -563,9 +527,6 @@ export default function Repayment() {
     );
   }
 
-  // ------------------------------------------------------------------
-  // Main render: active credit + collapsible history
-  // ------------------------------------------------------------------
   return (
     <div className="flex-1 flex flex-col justify-between p-5">
       <div className="space-y-4">
@@ -591,7 +552,6 @@ export default function Repayment() {
 
         {!isLoading && (
           <>
-            {/* Alert warning — personalizada por relación (privacidad) */}
             {miAlerta.alerta && (
               <div className="bg-danger-50 border border-danger-200 p-2.5 rounded-xl text-[10px] text-danger-800 animate-pulse">
                 <div className="flex gap-1.5 items-start">
@@ -604,7 +564,6 @@ export default function Repayment() {
               </div>
             )}
 
-            {/* ── Active credit ── */}
             {activeGroup && (
               <CreditGroup
                 group={activeGroup}
@@ -614,7 +573,6 @@ export default function Repayment() {
               />
             )}
 
-            {/* ── Historical credits ── */}
             {historicalGroups.length > 0 && (
               <div>
                 <button
@@ -627,7 +585,6 @@ export default function Repayment() {
                   </span>
                   <i className={`fa-solid fa-chevron-${historyOpen ? 'up' : 'down'} text-slate-400`} />
                 </button>
-
                 {historyOpen && (
                   <div className="mt-3 space-y-4">
                     {historicalGroups.map((group) => (
@@ -647,7 +604,6 @@ export default function Repayment() {
         )}
       </div>
 
-      {/* Wallet connection warning */}
       {!isLoading && !walletConnected && hasCredits && (
         <div className="pt-4">
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
