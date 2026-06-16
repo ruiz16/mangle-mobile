@@ -10,8 +10,8 @@
 // =============================================================================
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { createWalletClient, createPublicClient, custom, http, formatUnits, parseUnits, encodeFunctionData } from 'viem';
-import { getActiveChain, getActiveRpc, resolveContractAddresses } from '../lib/network';
+import { createWalletClient, createPublicClient, custom, formatUnits, parseUnits, encodeFunctionData } from 'viem';
+import { getActiveChain, getActiveTransport, resolveContractAddresses } from '../lib/network';
 import type { Address } from 'viem';
 
 // Minimal ERC-20 ABI for balanceOf + transfer + approve
@@ -72,7 +72,6 @@ const LENDING_POOL_ABI = [
 // no está conectada. Las funciones connect() y sendCopm() resuelven las
 // direcciones dinámicamente al ejecutarse.
 const ACTIVE_CHAIN = getActiveChain();
-const RPC_URL = getActiveRpc();
 
 export interface UseMiniPayReturn {
   /** True if running inside MiniPay WebView */
@@ -224,7 +223,7 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
       // 5. Read COPm balance desde la dirección correcta según la red
       const publicClient = createPublicClient({
         chain: ACTIVE_CHAIN,
-        transport: http(RPC_URL),
+        transport: getActiveTransport(),
       });
 
       const balance = await publicClient.readContract({
@@ -345,7 +344,7 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
     const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
     const currentFrom = (accounts[0] ?? from) as Address;
 
-    const publicClient = createPublicClient({ chain: ACTIVE_CHAIN, transport: http(RPC_URL) });
+    const publicClient = createPublicClient({ chain: ACTIVE_CHAIN, transport: getActiveTransport() });
 
     // 1. Aprobar solo si el allowance actual no alcanza (evita tx innecesaria).
     const currentAllowance = await publicClient.readContract({

@@ -5,12 +5,12 @@ import { queryKeys } from '../queries/client';
 import { useCuotas, usePagoConfig } from '../queries/cuotas';
 import { useCreditoActivo } from '../queries/creditos';
 import { useMiAlerta, mensajeAlerta } from '../queries/gacc';
-import { createPublicClient, http, keccak256, stringToHex } from 'viem';
+import { createPublicClient, keccak256, stringToHex } from 'viem';
 import { useAppState } from '../context/AppState';
 import { useMiniPay } from '../hooks/useMiniPay';
 import PageHeader from '../components/PageHeader';
 import { showToast } from '../components/Toast';
-import { getActiveChain, getActiveRpc } from '../lib/network';
+import { getActiveChain, getActiveTransport } from '../lib/network';
 import { apiPost, ApiRequestError } from '../lib/api';
 import { formatCopm } from '../lib/currency';
 import Lottie from 'lottie-react';
@@ -375,7 +375,7 @@ export default function Repayment() {
       // ── 2. Esperar el recibo — pero un TIMEOUT NO significa "falló" ───────
       const publicClient = createPublicClient({
         chain: getActiveChain(),
-        transport: http(getActiveRpc()),
+        transport: getActiveTransport(),
       });
 
       let receiptStatus: 'success' | 'reverted' | 'unknown' = 'unknown';

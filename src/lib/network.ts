@@ -13,7 +13,8 @@
 // =============================================================================
 
 import { celo, celoSepolia } from 'viem/chains';
-import type { Chain } from 'viem';
+import { fallback, http } from 'viem';
+import type { Chain, Transport } from 'viem';
 
 // =============================================================================
 // Types
@@ -91,6 +92,40 @@ export function getActiveChain(): Chain {
 
 export function getActiveRpc(): string {
   return getActiveNetwork().rpc;
+}
+
+/**
+ * Lista de RPCs para la red activa: el primario (requerido) + extras OPCIONALES
+ * configurados por env, coma-separados. Permite redundancia real agregando, por
+ * ej., un endpoint de Alchemy/dRPC sin tocar código:
+ *   VITE_CELO_SEPOLIA_RPC_FALLBACKS="https://celo-sepolia.g.alchemy.com/v2/KEY,https://..."
+ *   VITE_CELO_MAINNET_RPC_FALLBACKS="https://..."
+ */
+export function getActiveRpcUrls(): string[] {
+  const primary = getActiveRpc();
+  const key = ACTIVE_NETWORK === 'mainnet'
+    ? 'VITE_CELO_MAINNET_RPC_FALLBACKS'
+    : 'VITE_CELO_SEPOLIA_RPC_FALLBACKS';
+  const extras = String(import.meta.env?.[key] ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return [primary, ...extras.filter((u) => u !== primary)];
+}
+
+/**
+ * Transporte viem RESILIENTE para lecturas on-chain (recibos, allowance, balances):
+ * fallback() entre todos los RPCs disponibles + reintentos por endpoint. Si forno
+ * está lento o caído, viem rota al siguiente automáticamente — clave en redes
+ * móviles / MiniPay.
+ *
+ * Las ESCRITURAS siguen yendo por la wallet (provider inyectado), no por acá.
+ */
+export function getActiveTransport(): Transport {
+  const urls = getActiveRpcUrls();
+  return fallback(
+    urls.map((url) => http(url, { timeout: 15_000, retryCount: 3, retryDelay: 600 })),
+  );
 }
 
 export function getCopmAddress(): `0x${string}` {
