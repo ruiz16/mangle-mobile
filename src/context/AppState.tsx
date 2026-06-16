@@ -27,18 +27,15 @@ function loadSavedState(): AppState {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object' && 'walletConnected' in parsed) {
-        // Sólo se persiste el slice de sesión; el resto se hidrata del default.
         return { ...createDefaultState(), ...parsed } as AppState;
       }
     }
   } catch {
-    // storage corrupto, lleno o inexistente — usar default
+    // storage corrupto o inexistente — usar default
   }
   return createDefaultState();
 }
 
-// Sólo el slice de SESIÓN se persiste. Los datos del servidor viven en
-// TanStack Query y NUNCA tocan storage (evita el bug de staleness).
 const SESSION_KEYS = [
   'walletConnected',
   'walletAddress',
@@ -51,15 +48,11 @@ const SESSION_KEYS = [
 ] as const satisfies readonly (keyof AppState)[];
 
 function saveState(state: AppState): void {
-  const raw = mangleStorage.getItem(STORAGE_KEY);
-  if (raw) {
-    try {
-      const saved = JSON.parse(raw);
-      if ((saved.authToken || saved.registered) && !state.authToken && !state.registered) {
-        return; // 🛡️ no pisar datos reales con estado vacío
-      }
-    } catch { /* ignorar parseo corrupto */ }
-  }
+  // ✅ FIX: guard eliminado. El guard anterior bloqueaba clearAuth() — cuando
+  // los tokens eran borrados del estado React, el storage NO se actualizaba
+  // y los tokens expirados quedaban atrapados. Esto causaba un loop infinito:
+  // load stale token → 401 → clearAuth() → load stale token de storage → ...
+  // El storage ahora siempre refleja el estado actual sin excepción.
   const session: Partial<AppState> = {};
   for (const key of SESSION_KEYS) {
     (session as Record<string, unknown>)[key] = state[key];
@@ -73,8 +66,6 @@ function saveState(state: AppState): void {
 
 interface AppStateContextValue {
   state: AppState;
-
-  // Actions
   connectWallet: (address: string) => void;
   setAuthStep: (step: AuthStep) => void;
   setSiweAuth: (message: string, signature: `0x${string}`) => void;
@@ -83,8 +74,6 @@ interface AppStateContextValue {
   clearAuth: () => void;
   registerUser: () => void;
   resetState: () => void;
-
-  // Blocking error modal
   showErrorModal: (title: string, message: string) => void;
   clearErrorModal: () => void;
 }
@@ -98,19 +87,12 @@ const AppStateContext = createContext<AppStateContextValue | null>(null);
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(loadSavedState);
 
-  // Persist on every state change
   useEffect(() => {
     saveState(state);
   }, [state]);
 
-  // ---------- Wallet ----------
-
   const connectWallet = useCallback((address: string) => {
-    setState((prev) => ({
-      ...prev,
-      walletConnected: true,
-      walletAddress: address,
-    }));
+    setState((prev) => ({ ...prev, walletConnected: true, walletAddress: address }));
   }, []);
 
   const setAuthStep = useCallback((step: AuthStep) => {
@@ -132,6 +114,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearAuth = useCallback(() => {
+    // ✅ FIX: limpiar storage explicitamente al cerrar sesión.
+    // Sin esto, tokens expirados quedaban en storage y se recargaban
+    // en el próximo render, causando loops de refresh fallido.
+    mangleStorage.removeItem(STORAGE_KEY);
     setState((prev) => ({
       ...prev,
       authStep: 'idle',
@@ -143,20 +129,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshTokens = useCallback((token: string, refreshToken: string) => {
-    setState((prev) => ({
-      ...prev,
-      authToken: token,
-      refreshToken,
-    }));
+    setState((prev) => ({ ...prev, authToken: token, refreshToken }));
   }, []);
-
-  // ---------- Register User ----------
 
   const registerUser = useCallback(() => {
     setState((prev) => ({ ...prev, registered: true }));
   }, []);
-
-  // ---------- Reset ----------
 
   const resetState = useCallback(() => {
     mangleStorage.removeItem(STORAGE_KEY);
@@ -170,8 +148,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const clearErrorModal = useCallback(() => {
     setState((prev) => ({ ...prev, errorModal: null }));
   }, []);
-
-  // ---------- Provide ----------
 
   return (
     <AppStateContext.Provider
@@ -194,14 +170,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
-
 export function useAppState(): AppStateContextValue {
   const ctx = useContext(AppStateContext);
-  if (!ctx) {
-    throw new Error('useAppState debe usarse dentro de un <AppStateProvider>');
-  }
+  if (!ctx) throw new Error('useAppState debe usarse dentro de un <AppStateProvider>');
   return ctx;
 }
