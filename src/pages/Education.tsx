@@ -85,7 +85,7 @@ export default function Education() {
       <div className="space-y-4">
         <PageHeader
           title="Finanzas Cooperativas"
-          subtitle="Completa tus saberes para liberar tu solicitud de microcrédito grupal."
+          subtitle="Completa tus saberes para liberar tu solicitud."
           right={
             <span className="text-xs font-mono text-slate-400">
               {loading
