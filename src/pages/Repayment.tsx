@@ -69,8 +69,8 @@ function groupByCredit(cuotas: ApiCuota[]): CuotaGrouped[] {
 // =============================================================================
 function LogoEvaluacion({ small = false }: { small?: boolean }) {
   const s = small
-    ? { wrap: 'w-16 h-16', r1: 'w-16 h-16', r2: 'w-12 h-12', r3: 'w-8 h-8',  img: 'w-8 h-8'  }
-    : { wrap: 'w-32 h-32', r1: 'w-32 h-32', r2: 'w-24 h-24', r3: 'w-16 h-16', img: 'w-16 h-16' };
+    ? { wrap: 'w-32 h-32', r1: 'w-16 h-16', r2: 'w-12 h-12', r3: 'w-8 h-8', img: 'w-8 h-8' }
+    : { wrap: 'w-64 h-64', r1: 'w-32 h-32', r2: 'w-24 h-24', r3: 'w-16 h-16', img: 'w-16 h-16' };
   return (
     <div className="flex justify-center items-center py-2">
       <div className={`relative flex items-center justify-center ${s.wrap}`}>
@@ -129,7 +129,7 @@ function CreditGroup({ group, payingCuotaId, onPay, isHistory }: CreditGroupProp
                       <span className="text-xs font-bold text-slate-700">Cuota {cuota.numero_cuota} de {cuota.total_cuotas}</span>
                       {isPaid ? <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1"><i className="fa-solid fa-circle-check" /> Pagada</span>
                         : isPastDue ? <span className="text-[9px] font-bold text-danger-600 bg-danger-50 px-2 py-0.5 rounded-full">Vencida</span>
-                        : <span className="text-[9px] text-slate-400">{daysLeft > 0 ? `En ${daysLeft} días` : 'Vence hoy'}</span>}
+                          : <span className="text-[9px] text-slate-400">{daysLeft > 0 ? `En ${daysLeft} días` : 'Vence hoy'}</span>}
                     </div>
                     <p className="text-[10px] text-slate-400 mt-0.5">{formatCopm(cuota.monto_cuota)} · Vence {formatDate(cuota.fecha_vencimiento)}</p>
                   </div>
@@ -163,7 +163,7 @@ export default function Repayment() {
 
   const { data: cuotasData, isLoading: cuotasLoading, isError } = useCuotas();
   const { data: pagoConfig, isLoading: configLoading } = usePagoConfig();
-  const { estado: creditEstado, isLoading: creditLoading } = useCreditoActivo();
+  const { credito, estado: creditEstado, isLoading: creditLoading } = useCreditoActivo();
   const { data: pendientesData } = usePendientesAval();
   const cuotas = cuotasData?.cuotas ?? [];
   const error = isError ? 'No se pudo cargar tu información de pagos.' : null;
@@ -172,7 +172,6 @@ export default function Repayment() {
   const ownCredit = pendientesData?.creditos?.find((c) => c.es_propio) ?? null;
   const avalesActuales = ownCredit?.avales_actuales ?? 0;
   const avalesMinimos = ownCredit?.avales_minimos ?? 2;
-  const avalesFaltantes = Math.max(0, avalesMinimos - avalesActuales);
 
   const handlePay = useCallback(async (cuota: ApiCuota) => {
     if (payingCuotaId) return;
@@ -245,21 +244,19 @@ export default function Repayment() {
   );
 
   // ------------------------------------------------------------------
-  // Crédito en evaluación — 3 sub-estados con texto congruente
+  // Crédito en evaluación
   // ------------------------------------------------------------------
   if (!isLoading && !hasCredits && creditEstado === 'pendiente') {
-    // Título y descripción según el estado real de los avales
-    const titulo = ownCredit
-      ? avalesFaltantes === 0
-        ? '¡Casi lista!'
-        : 'Esperando avales'
-      : 'Solicitud recibida';
+    // Si el estado en base de datos ya superó la fase de avales
+    const isAvalado = credito?.estado === 'avalado' || credito?.estado === 'aprobado';
 
-    const descripcion = ownCredit
-      ? avalesFaltantes === 0
-        ? 'Tu grupo ya completó los avales. El equipo MANGLE procesará tu crédito muy pronto.'
-        : 'Tu referadora y el Líder Social deben avalar tu solicitud. Podés ver el estado en tu grupo GACC.'
-      : 'Tu solicitud fue enviada con éxito y está siendo revisada por el equipo MANGLE.';
+    const titulo = isAvalado
+      ? '¡Casi lista!'
+      : 'Esperando avales';
+
+    const descripcion = isAvalado
+      ? 'Tu grupo ya completó los avales. El equipo MANGLE realizará el desembolso de tu crédito muy pronto.'
+      : 'Tu referadora y el Líder Social deben avalar tu solicitud.';
 
     return (
       <div className="flex-1 flex flex-col bg-gradient-to-b from-surface-light to-surface">
