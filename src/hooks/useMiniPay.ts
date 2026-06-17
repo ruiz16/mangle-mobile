@@ -84,8 +84,14 @@ const CELO_MAINNET_ID = 42220;
  * En testnet el Mock NO es fee currency: incluir feeCurrency haría que el nodo
  * rechace la tx en MiniPay. Por eso ahí devolvemos `{}` (gas en CELO).
  */
-function buildFeeField(chainId: number, copmAddress: Address): { feeCurrency?: Address } {
-  return chainId === CELO_MAINNET_ID ? { feeCurrency: copmAddress } : {};
+function buildFeeField(chainId: number, copmAddress: Address, cusdAddress: Address): { feeCurrency?: Address } {
+  if (chainId === CELO_MAINNET_ID) {
+    return { feeCurrency: copmAddress };
+  }
+  // En testnet, el Mock COPm no está whitelisteado como fee currency.
+  // Para que funcione el fee abstraction en MiniPay sin requerir CELO,
+  // usamos cUSD (USDm) de testnet, que sí está whitelisteado.
+  return { feeCurrency: cusdAddress };
 }
 
 export interface UseMiniPayReturn {
@@ -273,7 +279,7 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
     }
 
     const chainId = await switchClient.getChainId().catch(() => ACTIVE_CHAIN.id);
-    const { copmAddress } = resolveContractAddresses(chainId);
+    const { copmAddress, cusdAddress } = resolveContractAddresses(chainId);
     const amountWei = parseUnits(String(amountCopm), 18);
 
     const data = encodeFunctionData({
@@ -285,9 +291,8 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
     const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
     const currentFrom = (accounts[0] ?? from) as Address;
 
-    // ✅ feeCurrency SOLO si el COPm es fee currency (mainnet). En testnet el Mock
-    //    NO está whitelisteado → poner feeCurrency rompería la tx en MiniPay.
-    const feeField = buildFeeField(chainId, copmAddress);
+    // ✅ feeCurrency: COPm en mainnet, cUSD en testnet (para MiniPay fee abstraction)
+    const feeField = buildFeeField(chainId, copmAddress, cusdAddress);
     const txHash = await provider.request({
       method: 'eth_sendTransaction',
       params: [{ from: currentFrom, to: copmAddress, data, ...feeField }],
@@ -319,7 +324,7 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
     }
 
     const chainId = await switchClient.getChainId().catch(() => ACTIVE_CHAIN.id);
-    const { copmAddress } = resolveContractAddresses(chainId);
+    const { copmAddress, cusdAddress } = resolveContractAddresses(chainId);
     const amountWei = parseUnits(String(amountCopm), 18);
 
     const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
@@ -342,10 +347,10 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
         args: [poolAddress, amountWei],
       });
 
-      // ✅ feeCurrency solo en mainnet (ver buildFeeField)
+      // ✅ feeCurrency: COPm en mainnet, cUSD en testnet
       const approveTx = await provider.request({
         method: 'eth_sendTransaction',
-        params: [{ from: currentFrom, to: copmAddress, data: approveData, ...buildFeeField(chainId, copmAddress) }],
+        params: [{ from: currentFrom, to: copmAddress, data: approveData, ...buildFeeField(chainId, copmAddress, cusdAddress) }],
       }) as `0x${string}`;
 
       const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveTx, timeout: 60_000 });
@@ -374,10 +379,10 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
       args: [creditId, amountWei],
     });
 
-    // ✅ feeCurrency solo en mainnet (ver buildFeeField)
+    // ✅ feeCurrency: COPm en mainnet, cUSD en testnet
     const repayTx = await provider.request({
       method: 'eth_sendTransaction',
-      params: [{ from: currentFrom, to: poolAddress, data: repayData, ...buildFeeField(chainId, copmAddress) }],
+      params: [{ from: currentFrom, to: poolAddress, data: repayData, ...buildFeeField(chainId, copmAddress, cusdAddress) }],
     }) as `0x${string}`;
 
     return repayTx;

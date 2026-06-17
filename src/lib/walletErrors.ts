@@ -41,6 +41,12 @@ export function friendlyWalletError(err: any): string {
     return 'Cancelaste la transacción en tu wallet.';
   }
 
+  // Mostrar log pero en terminal de vite
+  try {
+    // Enviamos el log al plugin de vite para verlo en la terminal, incluso usando ngrok
+    fetch('/api/log', { method: 'POST', body: text }).catch(() => { });
+  } catch (e) { }
+
   // 3. Saldo insuficiente (COPm) — el caso "sin fondos"
   if (
     text.includes('insufficient funds') ||

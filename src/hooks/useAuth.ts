@@ -11,6 +11,14 @@ import { getActiveChain } from '../lib/network';
 import { apiGet, apiPost, ApiRequestError } from '../lib/api';
 import type { AuthStep } from '../types';
 
+// ⚠️ TEMPORAL — desactiva SIWE (firma personal_sign) también para wallets tipo
+//    MetaMask, usando el login por address (/api/auth/minipay). Sirve para
+//    probar el flujo sin firmar mientras se ajusta MiniPay.
+//    👉 Volvé a `false` para reactivar SIWE.
+//    NOTA: con esto, cualquier wallet autentica solo con su address, sin prueba
+//    de posesión de la clave. NO dejarlo activo en producción.
+const SIWE_DISABLED = true;
+
 export function useAuth() {
   const {
     state,
@@ -120,7 +128,9 @@ export function useAuth() {
       guard.current.lastAddress = address;
 
       // ── Bifurcar por tipo de wallet ─────────────────────────────────────
-      if (currentIsMiniPay) {
+      // MiniPay nunca firma. Si SIWE_DISABLED, MetaMask tampoco → ambos van por
+      // el login por address (/api/auth/minipay).
+      if (currentIsMiniPay || SIWE_DISABLED) {
         setStep('exchanging');
         const miniPayResult = await apiPost<{
           ok: boolean;
