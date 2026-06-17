@@ -8,8 +8,10 @@
 // Si la wallet no está conectada o está en una red no reconocida, se usa
 // el fallback estático de VITE_CELO_NETWORK.
 //
-// FEE ABSTRACTION: todas las transacciones usan feeCurrency = copmAddress
+// FEE ABSTRACTION: en MAINNET las transacciones usan feeCurrency = copmAddress
 // para que las usuarias paguen el gas en COPm sin necesitar CELO nativo.
+// En TESTNET el Mock NO es fee currency, así que se omite feeCurrency (gas en
+// CELO) — incluirlo haría que MiniPay rechace la tx. Ver buildFeeField().
 // =============================================================================
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -73,6 +75,19 @@ const LENDING_POOL_ABI = [
 
 const ACTIVE_CHAIN = getActiveChain();
 
+// Celo Mainnet chainId. Solo ahí el COPm oficial es fee currency válido.
+const CELO_MAINNET_ID = 42220;
+
+/**
+ * Devuelve `{ feeCurrency }` SOLO en mainnet, donde el COPm oficial está
+ * whitelisteado como fee currency (gas pagado en COPm vía fee abstraction).
+ * En testnet el Mock NO es fee currency: incluir feeCurrency haría que el nodo
+ * rechace la tx en MiniPay. Por eso ahí devolvemos `{}` (gas en CELO).
+ */
+function buildFeeField(chainId: number, copmAddress: Address): { feeCurrency?: Address } {
+  return chainId === CELO_MAINNET_ID ? { feeCurrency: copmAddress } : {};
+}
+
 export interface UseMiniPayReturn {
   isMiniPay: boolean;
   isAvailable: boolean;
@@ -83,6 +98,7 @@ export interface UseMiniPayReturn {
   error: string | null;
   connect: () => Promise<{ address: Address; copmBalance: bigint }>;
   signMessage: (message: string, signerAddress: Address) => Promise<`0x${string}`>;
+  getCopmBalance: (addr: Address) => Promise<bigint>;
   sendCopm: (to: Address, amountCopm: string, from: Address) => Promise<`0x${string}`>;
   repayCopm: (
     poolAddress: Address,
@@ -219,6 +235,21 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
   }, [getWalletClient]);
 
   // --------------------------------------------------------------------------
+  // Lee el saldo COPm actual on-chain (fresco) de una dirección.
+  // Útil para chequear fondos ANTES de intentar un pago (evita tx fallida).
+  // --------------------------------------------------------------------------
+  const getCopmBalance = useCallback(async (addr: Address): Promise<bigint> => {
+    const publicClient = createPublicClient({ chain: ACTIVE_CHAIN, transport: getActiveTransport() });
+    const { copmAddress } = resolveContractAddresses(ACTIVE_CHAIN.id);
+    return publicClient.readContract({
+      address: copmAddress,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [addr],
+    }) as Promise<bigint>;
+  }, []);
+
+  // --------------------------------------------------------------------------
   // Send COPm via ERC-20 transfer
   // feeCurrency = copmAddress → gas pagado en COPm, sin CELO nativo
   // --------------------------------------------------------------------------
@@ -254,10 +285,12 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
     const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
     const currentFrom = (accounts[0] ?? from) as Address;
 
-    // ✅ feeCurrency: gas pagado en COPm — sin CELO nativo requerido
+    // ✅ feeCurrency SOLO si el COPm es fee currency (mainnet). En testnet el Mock
+    //    NO está whitelisteado → poner feeCurrency rompería la tx en MiniPay.
+    const feeField = buildFeeField(chainId, copmAddress);
     const txHash = await provider.request({
       method: 'eth_sendTransaction',
-      params: [{ from: currentFrom, to: copmAddress, data, feeCurrency: copmAddress }],
+      params: [{ from: currentFrom, to: copmAddress, data, ...feeField }],
     }) as `0x${string}`;
 
     return txHash;
@@ -309,10 +342,10 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
         args: [poolAddress, amountWei],
       });
 
-      // ✅ feeCurrency: gas del approve pagado en COPm
+      // ✅ feeCurrency solo en mainnet (ver buildFeeField)
       const approveTx = await provider.request({
         method: 'eth_sendTransaction',
-        params: [{ from: currentFrom, to: copmAddress, data: approveData, feeCurrency: copmAddress }],
+        params: [{ from: currentFrom, to: copmAddress, data: approveData, ...buildFeeField(chainId, copmAddress) }],
       }) as `0x${string}`;
 
       const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveTx, timeout: 60_000 });
@@ -341,10 +374,10 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
       args: [creditId, amountWei],
     });
 
-    // ✅ feeCurrency: gas del repay pagado en COPm
+    // ✅ feeCurrency solo en mainnet (ver buildFeeField)
     const repayTx = await provider.request({
       method: 'eth_sendTransaction',
-      params: [{ from: currentFrom, to: poolAddress, data: repayData, feeCurrency: copmAddress }],
+      params: [{ from: currentFrom, to: poolAddress, data: repayData, ...buildFeeField(chainId, copmAddress) }],
     }) as `0x${string}`;
 
     return repayTx;
@@ -360,6 +393,7 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
     error,
     connect,
     signMessage,
+    getCopmBalance,
     sendCopm,
     repayCopm,
   };

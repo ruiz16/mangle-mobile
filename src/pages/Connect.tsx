@@ -38,7 +38,7 @@ export default function Connect() {
   useEffect(() => {
     if (!isAuthenticated || !state.authToken) return;
     const timer = setTimeout(() => {
-      navigate(state.registered ? '/education' : '/register');
+      navigate(state.registered ? '/repayment' : '/register');
     }, 500);
     return () => clearTimeout(timer);
   }, [isAuthenticated, state.authToken, state.registered, navigate]);

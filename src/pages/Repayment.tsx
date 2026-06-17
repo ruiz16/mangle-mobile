@@ -5,14 +5,15 @@ import { queryKeys } from '../queries/client';
 import { useCuotas, usePagoConfig } from '../queries/cuotas';
 import { useCreditoActivo } from '../queries/creditos';
 import { useMiAlerta, mensajeAlerta, usePendientesAval } from '../queries/gacc';
-import { createPublicClient, keccak256, stringToHex } from 'viem';
+import { createPublicClient, keccak256, stringToHex, parseUnits } from 'viem';
 import { useAppState } from '../context/AppState';
 import { useMiniPay } from '../hooks/useMiniPay';
 import PageHeader from '../components/PageHeader';
 import { showToast } from '../components/Toast';
 import { getActiveChain, getActiveTransport } from '../lib/network';
 import { apiPost, ApiRequestError } from '../lib/api';
-import { formatCopm } from '../lib/currency';
+import { formatCopm, formatCopmBalance } from '../lib/currency';
+import { friendlyWalletError } from '../lib/walletErrors';
 import Lottie from 'lottie-react';
 import walletAnimation from '../assets/lottie/16a8e6c0-117a-11ee-a9de-ab7b4c8f4c79.json';
 import logoMangle from '../assets/images/Logo_Mangle.png';
@@ -186,6 +187,20 @@ export default function Repayment() {
     try {
       let txHash = getPendingTx(cuota.id);
       if (!txHash) {
+        // Chequeo proactivo de saldo: evita una tx fallida con error feo si no
+        // le alcanza. Solo si no hay un pago pendiente que estemos reanudando.
+        try {
+          const balance = await wallet.getCopmBalance(state.walletAddress as Address);
+          const needed = parseUnits(cuota.monto_cuota, 18);
+          if (balance < needed) {
+            showErrorModal(
+              'Necesitás más COPm',
+              `Tu saldo es ${formatCopmBalance(balance)} y la cuota es ${formatCopm(cuota.monto_cuota)}. Recargá COPm e intentá de nuevo.`,
+            );
+            setPayingCuotaId(null);
+            return;
+          }
+        } catch { /* si el chequeo falla, seguimos: el flujo normal mostrará el error */ }
         showToast('Enviando', cuota.credito_repayment_mode === 'pool' ? 'Confirmá DOS transacciones en tu wallet (autorización + pago).' : 'Confirmá la transacción en tu wallet.', 'info');
         if (cuota.credito_repayment_mode === 'pool') {
           const creditId = keccak256(stringToHex(cuota.credito_id));
@@ -218,7 +233,10 @@ export default function Repayment() {
       clearPendingTx(cuota.id); refrescar();
       showToast('¡Pago Exitoso!', `Cuota #${cuota.numero_cuota} pagada en la blockchain. Tx: ${txHash.slice(0, 10)}…`, 'success');
     } catch (err: any) {
-      showErrorModal('Error en el pago', err instanceof ApiRequestError ? (PAGO_ERROR_MESSAGES[err.code] ?? err.message) : (err?.shortMessage || err?.message || 'Error al procesar el pago'));
+      const msg = err instanceof ApiRequestError
+        ? (PAGO_ERROR_MESSAGES[err.code] ?? err.message)
+        : friendlyWalletError(err);
+      showErrorModal('Error en el pago', msg);
     } finally { setPayingCuotaId(null); }
   }, [payingCuotaId, pagoConfig, state.walletAddress, state.authToken, state.refreshToken, refreshTokens, wallet, authToken, queryClient]);
 
