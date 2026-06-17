@@ -25,6 +25,7 @@ const terminalLogPlugin = () => ({
 export default defineConfig({
   plugins: [react(), terminalLogPlugin()],
   server: {
+    // Permitir acceso desde cualquier host
     allowedHosts: ['15bd-161-10-244-216.ngrok-free.app']
   },
 });
