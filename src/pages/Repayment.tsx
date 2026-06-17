@@ -62,11 +62,15 @@ function groupByCredit(cuotas: ApiCuota[]): CuotaGrouped[] {
   return Array.from(map.values()).sort((a, b) => a.estado === 'desembolsado' ? -1 : b.estado === 'desembolsado' ? 1 : 0);
 }
 
-// Logo con anillos de pulse. small=true para cuando hay info debajo.
+// =============================================================================
+// Logo con anillos de pulse.
+// small=true  → logo 32px  (cuando hay card de avales debajo)
+// small=false → logo 64px  (pantalla limpia sin info adicional)
+// =============================================================================
 function LogoEvaluacion({ small = false }: { small?: boolean }) {
   const s = small
-    ? { wrap: 'w-28 h-28', r1: 'w-28 h-28', r2: 'w-20 h-20', r3: 'w-14 h-14', img: 'w-16 h-16' }
-    : { wrap: 'w-52 h-52', r1: 'w-52 h-52', r2: 'w-40 h-40', r3: 'w-28 h-28', img: 'w-32 h-32' };
+    ? { wrap: 'w-16 h-16', r1: 'w-16 h-16', r2: 'w-12 h-12', r3: 'w-8 h-8',  img: 'w-8 h-8'  }
+    : { wrap: 'w-32 h-32', r1: 'w-32 h-32', r2: 'w-24 h-24', r3: 'w-16 h-16', img: 'w-16 h-16' };
   return (
     <div className="flex justify-center items-center py-2">
       <div className={`relative flex items-center justify-center ${s.wrap}`}>
@@ -240,20 +244,39 @@ export default function Repayment() {
     </div>
   );
 
-  // Crédito en evaluación
+  // ------------------------------------------------------------------
+  // Crédito en evaluación — 3 sub-estados con texto congruente
+  // ------------------------------------------------------------------
   if (!isLoading && !hasCredits && creditEstado === 'pendiente') {
+    // Título y descripción según el estado real de los avales
+    const titulo = ownCredit
+      ? avalesFaltantes === 0
+        ? '¡Casi lista!'
+        : 'Esperando avales'
+      : 'Solicitud recibida';
+
+    const descripcion = ownCredit
+      ? avalesFaltantes === 0
+        ? 'Tu grupo ya completó los avales. El equipo MANGLE procesará tu crédito muy pronto.'
+        : 'Tu referadora y el Líder Social deben avalar tu solicitud. Podés ver el estado en tu grupo GACC.'
+      : 'Tu solicitud fue enviada con éxito y está siendo revisada por el equipo MANGLE.';
+
     return (
       <div className="flex-1 flex flex-col bg-gradient-to-b from-surface-light to-surface">
         <div className="px-5 pt-5"><PageHeader title="Repago de Crédito" subtitle="Estado de tu solicitud." /></div>
         <div className="flex-1 flex items-center justify-center p-6 -mt-6">
           <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl shadow-ink/5 p-8 space-y-5">
-            {/* Logo — pequeño si hay avales, grande si no */}
+
+            {/* Logo — 64px sin avales, 32px con avales */}
             <LogoEvaluacion small={!!ownCredit} />
+
+            {/* Título y descripción congruentes con el estado */}
             <div className="text-center">
-              <h2 className="text-xl font-extrabold text-ink leading-tight">Crédito en Evaluación</h2>
-              <p className="text-sm text-slate-500 font-medium mt-1 leading-relaxed">Tu solicitud está siendo revisada por el equipo MANGLE.</p>
+              <h2 className="text-xl font-extrabold text-ink leading-tight">{titulo}</h2>
+              <p className="text-sm text-slate-500 font-medium mt-1 leading-relaxed">{descripcion}</p>
             </div>
-            {/* Progreso de avales */}
+
+            {/* Progreso de avales — solo si hay datos */}
             {ownCredit && (
               <div className="bg-surface border border-primary/20 rounded-2xl p-4 space-y-3">
                 <div className="flex justify-between items-center">
@@ -263,12 +286,10 @@ export default function Repayment() {
                 <div className="w-full bg-white/60 rounded-full h-2 overflow-hidden">
                   <div className="bg-primary h-2 rounded-full transition-all duration-500" style={{ width: `${Math.min(100, (avalesActuales / avalesMinimos) * 100)}%` }} />
                 </div>
-                <p className="text-[10px] text-primary font-medium text-center">
-                  {avalesFaltantes === 0 ? '✅ Avales completos — tu crédito será procesado pronto' : `Esperando ${avalesFaltantes} aval${avalesFaltantes !== 1 ? 'es' : ''} de tus compañeras`}
-                </p>
                 <div className="flex items-center gap-3 text-[10px] pt-1 border-t border-primary/10">
                   <span className={ownCredit.aval_referadora_hecho ? 'text-emerald-600 font-bold' : 'text-slate-400'}>
-                    {ownCredit.aval_referadora_hecho ? '✓' : '○'} Referadora{ownCredit.referadora_nombre && <span className="font-normal text-slate-500"> ({ownCredit.referadora_nombre})</span>}
+                    {ownCredit.aval_referadora_hecho ? '✓' : '○'} Referadora
+                    {ownCredit.referadora_nombre && <span className="font-normal text-slate-500"> ({ownCredit.referadora_nombre})</span>}
                   </span>
                   <span className={ownCredit.aval_lider_hecho ? 'text-emerald-600 font-bold' : 'text-slate-400'}>
                     {ownCredit.aval_lider_hecho ? '✓' : '○'} Líder Social
@@ -276,6 +297,7 @@ export default function Repayment() {
                 </div>
               </div>
             )}
+
             <button onClick={() => navigate('/gacc')} className="w-full py-2.5 rounded-xl text-[11px] font-bold text-primary border border-primary/30 bg-surface hover:bg-primary/5 transition flex items-center justify-center gap-2">
               <i className="fa-solid fa-people-group text-xs" /> Ver mi grupo GACC
             </button>
