@@ -231,14 +231,14 @@ export default function Repayment() {
 
   if (!authToken) return (
     <div className="flex-1 flex flex-col p-5">
-      <PageHeader title="Repago de Crédito" subtitle="Ver y pagar tus cuotas." />
+      <PageHeader title="Mi Crédito" subtitle="Ver y pagar tus cuotas." />
       <div className="flex-1 flex items-center justify-center"><div className="text-center max-w-xs"><i className="fa-solid fa-user-lock text-slate-300 text-3xl mb-3" /><p className="text-xs text-slate-500">Iniciá sesión con tu wallet para ver tus cuotas y pagar.</p></div></div>
     </div>
   );
 
   if (error && !hasCredits) return (
     <div className="flex-1 flex flex-col p-5">
-      <PageHeader title="Repago de Crédito" subtitle="Ver y pagar tus cuotas." />
+      <PageHeader title="Mi Crédito" subtitle="Ver y pagar tus cuotas." />
       <div className="flex-1 flex items-center justify-center"><div className="text-center max-w-xs"><i className="fa-solid fa-circle-exclamation text-danger-400 text-3xl mb-3" /><p className="text-xs text-danger-600">{error}</p></div></div>
     </div>
   );
@@ -260,7 +260,7 @@ export default function Repayment() {
 
     return (
       <div className="flex-1 flex flex-col bg-gradient-to-b from-surface-light to-surface">
-        <div className="px-5 pt-5"><PageHeader title="Repago de Crédito" subtitle="Estado de tu solicitud." /></div>
+        <div className="px-5 pt-5"><PageHeader title="Mi Crédito" subtitle="Estado de tu solicitud." /></div>
         <div className="flex-1 flex items-center justify-center p-6 -mt-6">
           <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl shadow-ink/5 p-8 space-y-5">
 
@@ -306,7 +306,7 @@ export default function Repayment() {
 
   if (!isLoading && !hasCredits) return (
     <div className="flex-1 flex flex-col p-5">
-      <PageHeader title="Repago de Crédito" subtitle="Ver y pagar tus cuotas."
+      <PageHeader title="Mi Crédito" subtitle="Ver y pagar tus cuotas."
         right={<div className="flex items-center gap-1"><span className={`w-2 h-2 rounded-full ${nodeAlerta ? 'bg-danger-500 animate-pulse' : 'bg-emerald-500'}`} /><span className={`text-[9px] font-bold ${nodeAlerta ? 'text-danger-700 animate-pulse' : 'text-emerald-700'}`}>{nodeAlerta ? 'Alerta Activa (48h)' : 'Nodo Al Día'}</span></div>}
       />
       <div className="flex-1 flex items-center justify-center">
