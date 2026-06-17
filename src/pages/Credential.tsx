@@ -68,7 +68,7 @@ export default function Credential() {
           <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-orange-400/10 blur-2xl pointer-events-none" />
 
           {/* Logo protagonista de fondo */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-100 select-none scale-125 mix-blend-overlay">
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-100 select-none scale-125">
             <img src={logo} alt="" className="w-40 h-40 object-contain" />
           </div>
 
