@@ -19,10 +19,13 @@ export default function Register() {
   const [localPhone, setLocalPhone] = useState('');
   const [localOficio, setLocalOficio] = useState('');
   const [localCode, setLocalCode] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
 
   const handleSubmit = async () => {
+    if (isSubmitting) return;
+
     // ---- Validaciones ----
     if (!localName.trim()) {
       showToast('Faltan Campos', 'Por favor ingresa tu nombre.', 'warning');
@@ -50,6 +53,7 @@ export default function Register() {
       return;
     }
 
+    setIsSubmitting(true);
     registerUser();
 
     // ---- Persistir en servidor (blocking) ----
@@ -84,6 +88,8 @@ export default function Register() {
       const msg = err?.message || err?.detail || 'Error al registrar en el servidor. Verificá tu conexión e intentá de nuevo.';
       setErrorModal({ title: 'Error de Registro', message: msg });
       return; // ❌ No navega — se queda en Register
+    } finally {
+      setIsSubmitting(false);
     }
 
     // Refrescar perfil/GACC desde el backend tras el registro.
@@ -181,9 +187,20 @@ export default function Register() {
       <div className="pt-4">
         <button
           onClick={handleSubmit}
-          className="w-full py-3 bg-primary hover:bg-ink text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5"
+          disabled={isSubmitting}
+          className="w-full py-3 bg-primary hover:bg-ink disabled:bg-primary/70 disabled:cursor-not-allowed text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5"
         >
-          <span>Guardar Perfil y Continuar</span> <i className="fa-solid fa-arrow-right" />
+          {isSubmitting ? (
+            <>
+              <i className="fa-solid fa-spinner animate-spin" />
+              <span>Guardando perfil...</span>
+            </>
+          ) : (
+            <>
+              <span>Guardar Perfil y Continuar</span>
+              <i className="fa-solid fa-arrow-right" />
+            </>
+          )}
         </button>
       </div>
 

@@ -34,6 +34,7 @@ export default function Connect() {
   } = useAuth();
 
   const [, navigate] = useLocation();
+  const isMiniPay = connectorType === 'MiniPay';
 
   useEffect(() => {
     if (!isAuthenticated || !state.authToken) return;
@@ -58,6 +59,7 @@ export default function Connect() {
   }
 
   function CancelButton() {
+    if (isMiniPay) return null;
     return (
       <button
         onClick={() => navigate('/')}
