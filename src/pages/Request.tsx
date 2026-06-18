@@ -205,6 +205,16 @@ export default function Request() {
             <div>
               <p className="text-xs font-bold text-danger-800">Alerta en tu red</p>
               <p className="text-[10px] text-danger-700 mt-0.5 leading-relaxed">{mensajeAlerta(miAlerta)}</p>
+              {miAlerta.rol === 'referadora' && (
+                <button
+                  type="button"
+                  disabled
+                  className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#25D366] px-3 py-2 text-[10px] font-bold text-white opacity-70"
+                >
+                  <i className="fa-brands fa-whatsapp text-xs" />
+                  <span>Chat en WhatsApp</span>
+                </button>
+              )}
             </div>
           </div>
         )}
