@@ -210,7 +210,7 @@ export default function Gacc() {
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-600 font-medium">
-                        ${Number(ownPendingCredit.monto).toLocaleString('es-CO')} COPm
+                        ${Number(ownPendingCredit.monto).toLocaleString('es-CO')}
                       </p>
                       {ownPendingCredit.descripcion && (
                         <p className="text-[10px] text-slate-400 italic">
@@ -265,7 +265,7 @@ export default function Gacc() {
                             {credito.prestatario_nombre}
                           </p>
                           <p className="text-[11px] text-slate-500 font-medium">
-                            ${Number(credito.monto).toLocaleString('es-CO')} COPm
+                            ${Number(credito.monto).toLocaleString('es-CO')}
                           </p>
                           {credito.descripcion && (
                             <p className="text-[10px] text-slate-400 italic">
