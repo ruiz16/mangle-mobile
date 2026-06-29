@@ -10,6 +10,7 @@ import BottomNav from './components/BottomNav';
 import Toast from './components/Toast';
 import ErrorModal from './components/ErrorModal';
 import BackendGuard from './components/BackendGuard';
+import WalletChip from './components/WalletChip';
 import Splash from './pages/Splash';
 import Connect from './pages/Connect';
 import Register from './pages/Register';
@@ -21,6 +22,12 @@ import Wallet from './pages/Wallet';
 import Gacc from './pages/Gacc';
 import Dev from './pages/Dev';
 import type { NavTab } from './types';
+
+// =============================================================================
+// Constants
+// =============================================================================
+
+const MONEY_ROUTES = ['/request', '/repayment', '/wallet'];
 
 // =============================================================================
 // Mobile shell that wraps pages with status bar + bottom nav
@@ -55,6 +62,12 @@ function MobileShell({ children, showNav }: { children: React.ReactNode; showNav
 
   return (
     <div className="flex-1 bg-canvas overflow-hidden flex flex-col relative">
+      {showNav && MONEY_ROUTES.includes(location) && (
+        <div className="absolute top-3 right-4 z-30">
+          <WalletChip />
+        </div>
+      )}
+
       {/* Status bar */}
       {/* <div className="flex justify-between items-center px-6 pt-3 pb-1 text-slate-800 text-[11px] font-bold z-40">
         <span>{new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
