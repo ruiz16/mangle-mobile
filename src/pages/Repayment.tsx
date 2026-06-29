@@ -176,7 +176,7 @@ export default function Repayment() {
   const handlePay = useCallback(async (cuota: ApiCuota) => {
     if (payingCuotaId) return;
     if (!pagoConfig) { showToast('Error', 'No se pudo obtener la configuración de pago', 'error'); return; }
-    if (!state.walletAddress) { showToast('Error', 'Conectá tu wallet primero', 'error'); return; }
+    if (!state.walletAddress) { showToast('Error', 'Conectá tu billetera primero', 'error'); return; }
     setPayingCuotaId(cuota.id);
     const refrescar = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.creditos });
@@ -250,7 +250,7 @@ export default function Repayment() {
   if (!authToken) return (
     <div className="flex-1 flex flex-col p-5">
       <PageHeader title="Mi Crédito" subtitle="Ver y pagar tus cuotas." />
-      <div className="flex-1 flex items-center justify-center"><div className="text-center max-w-xs"><i className="fa-solid fa-user-lock text-slate-300 text-3xl mb-3" /><p className="text-xs text-slate-500">Iniciá sesión con tu wallet para ver tus cuotas y pagar.</p></div></div>
+      <div className="flex-1 flex items-center justify-center"><div className="text-center max-w-xs"><i className="fa-solid fa-user-lock text-slate-300 text-3xl mb-3" /><p className="text-xs text-slate-500">Iniciá sesión con tu billetera para ver tus cuotas y pagar.</p></div></div>
     </div>
   );
 
@@ -365,7 +365,7 @@ export default function Repayment() {
         )}
       </div>
       {!isLoading && !walletConnected && hasCredits && (
-        <div className="pt-4"><div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center"><i className="fa-solid fa-plug text-amber-600 text-base block mb-1" /><p className="text-[11px] font-bold text-amber-800">Conectá tu Wallet</p><p className="text-[10px] text-amber-600 mt-1">Conectá tu billetera para pagar tus cuotas.</p></div></div>
+        <div className="pt-4"><div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center"><i className="fa-solid fa-plug text-amber-600 text-base block mb-1" /><p className="text-[11px] font-bold text-amber-800">Conectá tu billetera</p><p className="text-[10px] text-amber-600 mt-1">Conectá tu billetera para pagar tus cuotas.</p></div></div>
       )}
     </div>
   );

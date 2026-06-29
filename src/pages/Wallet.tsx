@@ -23,7 +23,7 @@ export default function Wallet() {
   if (!address) {
     return (
       <div className="flex-1 flex flex-col p-5 gap-6">
-        <PageHeader title="Tu Wallet" subtitle="Tu saldo" />
+        <PageHeader title="Tu billetera" subtitle="Tu saldo" />
         <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center">
           <i className="fa-solid fa-wallet text-4xl text-slate-300" />
           <p className="text-sm text-slate-500">Conectá tu billetera para ver tu saldo.</p>
@@ -42,7 +42,7 @@ export default function Wallet() {
 
   return (
     <div className="flex-1 flex flex-col p-5 gap-6">
-      <PageHeader title="Tu Wallet" subtitle="Tu saldo" />
+      <PageHeader title="Tu billetera" subtitle="Tu saldo" />
 
       {/* Saldo en vivo */}
       <div className="rounded-3xl p-6 bg-white border border-slate-100 shadow-sm flex flex-col items-center gap-2">
