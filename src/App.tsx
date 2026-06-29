@@ -17,6 +17,7 @@ import Education from './pages/Education';
 import Request from './pages/Request';
 import Repayment from './pages/Repayment';
 import Credential from './pages/Credential';
+import Wallet from './pages/Wallet';
 import Gacc from './pages/Gacc';
 import Dev from './pages/Dev';
 import type { NavTab } from './types';
@@ -171,6 +172,12 @@ export default function App() {
             <Route path="/credential">
               <MobileShell showNav={true}>
                 <Credential />
+              </MobileShell>
+            </Route>
+
+            <Route path="/wallet">
+              <MobileShell showNav={true}>
+                <Wallet />
               </MobileShell>
             </Route>
 
