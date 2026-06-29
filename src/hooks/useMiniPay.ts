@@ -168,7 +168,7 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
 
   const getWalletClient = useCallback(() => {
     if (!provider) {
-      throw new Error('No se encontró una wallet. Instalá MetaMask o abrí esta app en MiniPay.');
+      throw new Error('No se encontró una billetera. Abrí esta app en MiniPay.');
     }
     return createWalletClient({
       chain: ACTIVE_CHAIN,
@@ -182,7 +182,7 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
 
     try {
       if (!provider) {
-        throw new Error('No se encontró una wallet. Instalá MetaMask o abrí esta app en MiniPay.');
+        throw new Error('No se encontró una billetera. Abrí esta app en MiniPay.');
       }
 
       const walletClient = getWalletClient();
@@ -265,7 +265,7 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
     from: Address,
   ): Promise<`0x${string}`> => {
     if (!provider) {
-      throw new Error('No se encontró una wallet.');
+      throw new Error('No se encontró una billetera.');
     }
 
     const switchClient = createWalletClient({ chain: ACTIVE_CHAIN, transport: custom(provider) });
@@ -311,7 +311,7 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
     amountCopm: string,
     from: Address,
   ): Promise<`0x${string}`> => {
-    if (!provider) throw new Error('No se encontró una wallet.');
+    if (!provider) throw new Error('No se encontró una billetera.');
 
     const switchClient = createWalletClient({ chain: ACTIVE_CHAIN, transport: custom(provider) });
     try {

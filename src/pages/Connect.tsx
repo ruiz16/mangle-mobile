@@ -70,7 +70,7 @@ export default function Connect() {
     );
   }
 
-  if (step === 'connecting_wallet' && authError?.includes('No se encontró una wallet')) {
+  if (step === 'connecting_wallet' && authError?.includes('No se encontró una billetera')) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-surface-light to-surface p-6">
         <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl shadow-ink/5 p-8 space-y-6">
