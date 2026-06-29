@@ -159,8 +159,6 @@ export default function Request() {
       .catch(() => setReferadoras([]));
   }, [state.authToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const moneda = credito?.moneda ?? 'COPm';
-
   useEffect(() => {
     if (!eduLoading && eduProgress < 100) {
       showToast('Educación Incompleta', 'Completa el módulo educativo primero.');
