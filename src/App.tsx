@@ -27,7 +27,7 @@ import type { NavTab } from './types';
 // Constants
 // =============================================================================
 
-const MONEY_ROUTES = ['/request', '/repayment', '/wallet'];
+const CHIP_ROUTES = ['/request', '/repayment'];
 
 // =============================================================================
 // Mobile shell that wraps pages with status bar + bottom nav
@@ -62,7 +62,7 @@ function MobileShell({ children, showNav }: { children: React.ReactNode; showNav
 
   return (
     <div className="flex-1 bg-canvas overflow-hidden flex flex-col relative">
-      {showNav && MONEY_ROUTES.includes(location) && (
+      {showNav && CHIP_ROUTES.includes(location) && (
         <div className="absolute top-3 right-4 z-30">
           <WalletChip />
         </div>

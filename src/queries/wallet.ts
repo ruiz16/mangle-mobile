@@ -23,11 +23,15 @@ const BALANCE_ABI = [
   },
 ] as const;
 
+// Module-level singleton — built once.
+const publicClient = createPublicClient({
+  chain: getActiveChain(),
+  transport: getActiveTransport(),
+});
+
 /** Lee el saldo COPm fresco on-chain de una dirección. */
 export async function readCopmBalanceOf(address: Address): Promise<bigint> {
-  const chain = getActiveChain();
-  const publicClient = createPublicClient({ chain, transport: getActiveTransport() });
-  const { copmAddress } = resolveContractAddresses(chain.id);
+  const { copmAddress } = resolveContractAddresses(getActiveChain().id);
   return publicClient.readContract({
     address: copmAddress,
     abi: BALANCE_ABI,

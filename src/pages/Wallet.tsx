@@ -15,7 +15,7 @@ export default function Wallet() {
 
   const copy = async () => {
     if (!address) return;
-    await navigator.clipboard.writeText(address);
+    await navigator.clipboard.writeText(address).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
