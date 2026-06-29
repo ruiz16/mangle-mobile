@@ -21,8 +21,8 @@ import type { ApiCuota } from '../types';
 import type { Address } from 'viem';
 
 const PAGO_ERROR_MESSAGES: Record<string, string> = {
-  TX_NO_ENCONTRADA: 'La transacción no se encontró en la blockchain',
-  TX_REVERTIDA: 'La transacción fue revertida en la blockchain',
+  TX_NO_ENCONTRADA: 'Tu pago está siendo confirmado. Intentá de nuevo en unos segundos.',
+  TX_REVERTIDA: 'Tu pago no se pudo completar. Revisá tu saldo e intentá de nuevo.',
   TX_DESTINO_INVALIDO: 'Destino de transacción inválido',
   TX_BENEFICIARIO_INVALIDO: 'El beneficiario no coincide con la billetera de la fundación',
   TX_MONTO_INSUFICIENTE: 'El monto enviado es menor al valor de la cuota',
@@ -141,7 +141,6 @@ function CreditGroup({ group, payingCuotaId, onPay, isHistory }: CreditGroupProp
                     </button>
                   )}
                 </div>
-                {isPaid && cuota.tx_hash_pago && <p className="text-[8px] text-slate-400 mt-1 font-mono truncate">Tx: {cuota.tx_hash_pago}</p>}
               </div>
             );
           })}
@@ -195,14 +194,14 @@ export default function Repayment() {
           const needed = parseUnits(cuota.monto_cuota, 18);
           if (balance < needed) {
             showErrorModal(
-              'Necesitás más COPm',
-              `Tu saldo es ${formatCopmBalance(balance)} y la cuota es ${formatCopm(cuota.monto_cuota)}. Recargá COPm e intentá de nuevo.`,
+              'Saldo insuficiente',
+              `Tu saldo es ${formatCopmBalance(balance)} y la cuota es ${formatCopm(cuota.monto_cuota)}. Recargá e intentá de nuevo.`,
             );
             setPayingCuotaId(null);
             return;
           }
         } catch { /* si el chequeo falla, seguimos: el flujo normal mostrará el error */ }
-        showToast('Enviando', cuota.credito_repayment_mode === 'pool' ? 'Confirmá DOS transacciones en tu wallet (autorización + pago).' : 'Confirmá la transacción en tu wallet.', 'info');
+        showToast('Enviando', 'Confirmá tu pago en tu billetera.', 'info');
         if (cuota.credito_repayment_mode === 'pool') {
           const creditId = keccak256(stringToHex(cuota.credito_id));
           txHash = await wallet.repayCopm(pagoConfig.lendingPoolAddress, creditId, cuota.monto_cuota, state.walletAddress as Address);
@@ -213,26 +212,26 @@ export default function Repayment() {
       } else {
         showToast('Reanudando', 'Retomamos un pago anterior que quedó sin confirmar. No se te cobra de nuevo.', 'info');
       }
-      showToast('Verificando', 'Transacción enviada. Esperando confirmación on-chain.', 'info');
+      showToast('Verificando', 'Estamos procesando tu pago…', 'info');
       const publicClient = createPublicClient({ chain: getActiveChain(), transport: getActiveTransport() });
       let receiptStatus: 'success' | 'reverted' | 'unknown' = 'unknown';
       try {
         const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, timeout: 90_000 });
         receiptStatus = receipt.status === 'success' ? 'success' : 'reverted';
       } catch { receiptStatus = 'unknown'; }
-      if (receiptStatus === 'reverted') { clearPendingTx(cuota.id); throw new Error('La transacción fue revertida en la blockchain. Revisá tu saldo e intentá de nuevo.'); }
+      if (receiptStatus === 'reverted') { clearPendingTx(cuota.id); throw new Error('Tu pago no se pudo completar. Revisá tu saldo e intentá de nuevo.'); }
       try {
         await apiPost<{ status: string; cuota_id: string; credito_id: string }>('/api/pago', { cuota_id: cuota.id, tx_hash: txHash }, { token: authToken, refreshToken: state.refreshToken, onTokenRefresh: refreshTokens });
       } catch (apiErr) {
         if (apiErr instanceof ApiRequestError) {
           if (['YA_PAGADA', 'YA_PAGADO', 'TX_HASH_DUPLICADO'].includes(apiErr.code)) { clearPendingTx(cuota.id); refrescar(); showToast('Pago confirmado', `La cuota #${cuota.numero_cuota} ya estaba registrada.`, 'success'); return; }
-          if (apiErr.code === 'TX_NO_ENCONTRADA') { showToast('Confirmando…', 'El pago se está confirmando en la red. Volvé a tocar "Pagar" en unos segundos — NO se te cobra de nuevo.', 'info'); return; }
+          if (apiErr.code === 'TX_NO_ENCONTRADA') { showToast('Confirmando…', 'Confirmando tu pago… Volvé a tocar "Pagar" en unos segundos — NO se te cobra de nuevo.', 'info'); return; }
           if (apiErr.code === 'TX_REVERTIDA') clearPendingTx(cuota.id);
         }
         throw apiErr;
       }
       clearPendingTx(cuota.id); refrescar();
-      showToast('¡Pago Exitoso!', `Cuota #${cuota.numero_cuota} pagada en la blockchain. Tx: ${txHash.slice(0, 10)}…`, 'success');
+      showToast('¡Pago Exitoso!', `Cuota #${cuota.numero_cuota} pagada con éxito.`, 'success');
     } catch (err: any) {
       const msg = err instanceof ApiRequestError
         ? (PAGO_ERROR_MESSAGES[err.code] ?? err.message)
@@ -366,7 +365,7 @@ export default function Repayment() {
         )}
       </div>
       {!isLoading && !walletConnected && hasCredits && (
-        <div className="pt-4"><div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center"><i className="fa-solid fa-plug text-amber-600 text-base block mb-1" /><p className="text-[11px] font-bold text-amber-800">Conectá tu Wallet</p><p className="text-[10px] text-amber-600 mt-1">Necesitás conectar tu wallet para pagar cuotas en la blockchain.</p></div></div>
+        <div className="pt-4"><div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center"><i className="fa-solid fa-plug text-amber-600 text-base block mb-1" /><p className="text-[11px] font-bold text-amber-800">Conectá tu Wallet</p><p className="text-[10px] text-amber-600 mt-1">Conectá tu billetera para pagar tus cuotas.</p></div></div>
       )}
     </div>
   );
