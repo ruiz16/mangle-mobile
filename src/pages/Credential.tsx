@@ -1,6 +1,7 @@
 import { useAppState } from '../context/AppState';
 import PageHeader from '../components/PageHeader';
 import { useProfile, useScore } from '../queries/perfil';
+import { useLocation } from 'wouter';
 import logo from '../assets/images/Logo_Mangle.png';
 
 
@@ -13,6 +14,7 @@ function scoreLabel(score: number): { text: string; color: string } {
 
 export default function Credential() {
   const { state } = useAppState();
+  const [, navigate] = useLocation();
   const { data: profileData, isLoading: profileLoading } = useProfile();
   const fullName = profileData?.participante.nombre ?? '';
   const { score, antiguedad, isLoading: scoreLoading } = useScore();
@@ -145,6 +147,23 @@ export default function Credential() {
           </div>
         ))}
       </div>
+
+      {/* Entrada a la wallet */}
+      <button
+        onClick={() => navigate('/wallet')}
+        className="flex items-center justify-between rounded-2xl p-4 bg-white border border-slate-100 shadow-sm active:scale-[0.98] transition"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+            <i className="fa-solid fa-wallet text-primary text-sm" />
+          </div>
+          <div className="flex flex-col items-start">
+            <span className="text-xs font-bold text-ink">Tu Wallet</span>
+            <span className="text-[10px] text-slate-400">Ver tu saldo COPm</span>
+          </div>
+        </div>
+        <i className="fa-solid fa-chevron-right text-slate-300 text-xs" />
+      </button>
 
       <p className="text-[10px] text-slate-600 text-center px-6 leading-relaxed">
         Este score vive de forma auditable, en todas las transacciones de tu wallet MiniPay. 
