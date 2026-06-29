@@ -183,6 +183,7 @@ export default function Repayment() {
       queryClient.invalidateQueries({ queryKey: queryKeys.creditos });
       queryClient.invalidateQueries({ queryKey: queryKeys.cuotas });
       queryClient.invalidateQueries({ queryKey: queryKeys.score });
+      queryClient.invalidateQueries({ queryKey: ['copm-balance'] });
     };
     try {
       let txHash = getPendingTx(cuota.id);
