@@ -188,7 +188,7 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
       const walletClient = getWalletClient();
       const [connectedAddress] = await walletClient.requestAddresses();
       if (!connectedAddress) {
-        throw new Error('No se obtuvo acceso a la wallet. Rechazaste la conexión o la wallet no respondió.');
+        throw new Error('No se obtuvo acceso a la billetera. Rechazaste la conexión o la billetera no respondió.');
       }
 
       try {
@@ -230,7 +230,7 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
 
   const signMessage = useCallback(async (message: string, signerAddress: Address): Promise<`0x${string}`> => {
     if (!signerAddress) {
-      throw new Error('Primero conectá tu wallet.');
+      throw new Error('Primero conectá tu billetera.');
     }
     const walletClient = getWalletClient();
     const signature = await walletClient.signMessage({

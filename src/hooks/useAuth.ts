@@ -117,11 +117,11 @@ export function useAuth() {
         } else {
           const walletClient = createWalletClient({ transport: custom(provider) });
           const requested: string[] = await walletClient.requestAddresses();
-          if (!requested.length) throw new Error('No se obtuvo acceso a la wallet.');
+          if (!requested.length) throw new Error('No se obtuvo acceso a la billetera.');
           address = requested[0]!;
         }
       } catch (walletErr: any) {
-        throw new Error(walletErr?.message || 'No se pudo conectar la wallet.');
+        throw new Error(walletErr?.message || 'No se pudo conectar la billetera.');
       }
 
       connectWallet(address);

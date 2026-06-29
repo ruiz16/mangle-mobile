@@ -128,7 +128,7 @@ function DisconnectGuard() {
       if (!state.authToken) return;
       clearAuth();
       navigate('/connect');
-      showToast('Sesión cerrada', 'Tu wallet se desconectó o perdiste conexión.', 'info');
+      showToast('Sesión cerrada', 'Tu billetera se desconectó o perdiste conexión.', 'info');
     },
   });
 
