@@ -12,3 +12,4 @@ Final review: 0 Critical. 2 Important + 1 Minor fixed in 26b33ab. Clean.
 
 # Peso abstraction — progress
 Base: e422256
+Peso-abstraction: 6 tasks + cleanup + 3 fix rounds (caught self-introduced coupling regression). All user-facing leaks clean. HEAD 781c333
