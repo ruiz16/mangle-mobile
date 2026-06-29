@@ -103,7 +103,7 @@ export function useAuth() {
         typeof window !== 'undefined' ? (window as unknown as { ethereum?: any }).ethereum : null;
 
       if (!provider) {
-        throw new Error('No se encontró una wallet. Abrí esta app en MiniPay.');
+        throw new Error('No se encontró una billetera. Abrí esta app en MiniPay.');
       }
 
       // ✅ leer isMiniPay directo del provider (evita race condition del primer render)

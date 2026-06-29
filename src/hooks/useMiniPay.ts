@@ -355,7 +355,7 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
 
       const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveTx, timeout: 60_000 });
       if (approveReceipt.status !== 'success') {
-        throw new Error('La aprobación de COPm falló. Reintenta el pago.');
+        throw new Error('No pudimos procesar tu pago. Intentá de nuevo.');
       }
 
       // Esperar que el allowance se refleje on-chain
