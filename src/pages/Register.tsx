@@ -115,7 +115,7 @@ export default function Register() {
         <div className="bg-surface/50 p-3 rounded-xl border border-primary/10 flex gap-2">
           <i className="fa-solid fa-shield-halved text-primary text-xs mt-0.5" />
           <p className="text-[9px] text-ink leading-relaxed">
-            Tus datos personales se almacenan de forma privada en la aplicación. En la blockchain solo queda registro de tu wallet y tus transacciones.
+            Tus datos personales se almacenan de forma privada en la aplicación. Solo guardamos el registro de tus pagos, de forma segura.
           </p>
         </div>
 

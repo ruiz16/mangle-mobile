@@ -16,7 +16,7 @@ const STEP_LABELS: Record<AuthStep, string> = {
   checking_session: 'Verificando sesión anterior',
   connecting_wallet: 'Conectando con MiniPay',
   fetching_nonce: 'Preparando autenticación',
-  signing: 'Firmá el mensaje en tu wallet',
+  signing: 'Firmá el mensaje en tu billetera',
   exchanging: 'Autenticando con el servidor',
   authenticated: 'Autenticado con éxito!',
   error: 'Error de conexión',
@@ -46,7 +46,7 @@ export default function Connect() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      showToast('Wallet Autenticada', `Conexión exitosa con ${connectorType}.`, 'success');
+      showToast('Billetera conectada', `Conexión exitosa con ${connectorType}.`, 'success');
     }
   }, [isAuthenticated, connectorType]);
 
@@ -76,9 +76,9 @@ export default function Connect() {
         <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl shadow-ink/5 p-8 space-y-6">
           <LottieDisplay size={160} />
           <div className="text-center space-y-2">
-            <h1 className="text-xl font-bold text-ink">Wallet no detectada</h1>
+            <h1 className="text-xl font-bold text-ink">Billetera no detectada</h1>
             <p className="text-sm text-slate-500 leading-relaxed">
-              Para usar MANGLE necesitás una wallet como{' '}
+              Para usar MANGLE necesitás una billetera como{' '}
               <strong className="text-primary">MetaMask</strong> (escritorio) o{' '}
               <strong className="text-primary">MiniPay</strong> (celular).
             </p>
@@ -124,16 +124,11 @@ export default function Connect() {
         <div className="text-center space-y-2">
           <h1 className="text-xl font-bold text-ink">{STEP_LABELS[step]}</h1>
           {step === 'signing' && (
-            <p className="text-sm text-slate-500 leading-relaxed">Revisá tu wallet y firmá el mensaje para autenticarte.</p>
+            <p className="text-sm text-slate-500 leading-relaxed">Revisá tu billetera y firmá el mensaje para autenticarte.</p>
           )}
           {step === 'checking_session' && (
             <p className="text-sm text-slate-400">Buscando una sesión anterior</p>
           )}
-        </div>
-        <div className="flex justify-center">
-          <span className="bg-surface-light border border-primary/10 px-4 py-1.5 rounded-full text-[11px] font-mono text-primary font-medium tracking-wider">
-            {import.meta.env.VITE_CELO_NETWORK === 'mainnet' ? 'Network: Celo Mainnet' : 'Network: Celo Sepolia'}
-          </span>
         </div>
         <CancelButton />
       </div>
