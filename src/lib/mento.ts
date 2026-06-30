@@ -25,9 +25,9 @@ const BPS = 10_000n;
 
 export interface SwapTxs {
   /** approve USDm -> router de Mento (null si la allowance ya alcanza). */
-  approval: { to: Address; data: `0x${string}`; value: bigint } | null;
+  approval: { to: Address; data: `0x${string}` } | null;
   /** swap USDm -> COPm. */
-  swap: { to: Address; data: `0x${string}`; value: bigint };
+  swap: { to: Address; data: `0x${string}` };
   /** USDm (wei) que se gastará. */
   usdmIn: bigint;
 }
@@ -79,7 +79,7 @@ export async function buildSwapForCopm(copmOut: bigint, account: Address): Promi
   const usdmIn = await usdmNeededForCopm(copmOut);
 
   const route = await mento.routes.findRoute(usdm, copm);
-  const { approval, swap } = await mento.swap.buildSwapTransaction(
+  const built = (await mento.swap.buildSwapTransaction(
     usdm,
     copm,
     usdmIn,
@@ -87,13 +87,17 @@ export async function buildSwapForCopm(copmOut: bigint, account: Address): Promi
     account,
     { slippageTolerance: SLIPPAGE_TOLERANCE, deadline: deadlineFromMinutes(10) },
     route,
-  );
+    // El SDK tipa value como string y approval como nullable; solo usamos
+    // to/data (el value de un swap ERC-20 es 0 y se manda por el provider).
+  )) as unknown as { approval: { to: string; data: string } | null; swap: { params?: { to: string; data: string }; to?: string; data?: string } };
 
-  const norm = (t: { to: string; data: string; value?: bigint } | undefined) =>
-    t ? { to: t.to as Address, data: t.data as `0x${string}`, value: t.value ?? 0n } : null;
+  // El swap puede venir plano o anidado bajo `.params` según versión del SDK.
+  const rawSwap = built.swap?.params ?? built.swap;
+  const pick = (t: { to?: string; data?: string } | null | undefined) =>
+    t && t.to && t.data ? { to: t.to as Address, data: t.data as `0x${string}` } : null;
 
-  const swapNorm = norm(swap?.params ?? swap);
+  const swapNorm = pick(rawSwap);
   if (!swapNorm) throw new Error('No se pudo construir la conversión.');
 
-  return { approval: norm(approval), swap: swapNorm, usdmIn };
+  return { approval: pick(built.approval), swap: swapNorm, usdmIn };
 }
