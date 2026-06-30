@@ -28,7 +28,7 @@ export default function Splash() {
         </div>
         <div className="flex flex-col items-center gap-4">
           <span className="bg-surface-light border border-primary/10 px-4 py-1.5 rounded-full text-[11px] font-mono text-primary font-medium tracking-wider">
-            CELO COLOMBIA
+            MANGLE Colombia
           </span>
         </div>
       </div>

@@ -11,7 +11,7 @@ export default function WalletChip() {
     <button
       onClick={() => navigate('/wallet')}
       className="flex items-center gap-2 rounded-full bg-white/90 backdrop-blur border border-slate-100 shadow-sm pl-3 pr-3.5 py-1.5 active:scale-95 transition"
-      aria-label="Ver mi saldo COPm"
+      aria-label="Ver mi saldo"
     >
       <i className="fa-solid fa-wallet text-primary text-xs" />
       <span className="text-xs font-bold text-ink tabular-nums">

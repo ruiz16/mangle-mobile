@@ -103,6 +103,7 @@ function GlobalOverlays() {
     <ErrorModal
       title={state.errorModal.title}
       message={state.errorModal.message}
+      action={state.errorModal.action}
       onClose={clearErrorModal}
     />
   );
@@ -128,7 +129,7 @@ function DisconnectGuard() {
       if (!state.authToken) return;
       clearAuth();
       navigate('/connect');
-      showToast('Sesión cerrada', 'Tu wallet se desconectó o perdiste conexión.', 'info');
+      showToast('Sesión cerrada', 'Tu billetera se desconectó o perdiste conexión.', 'info');
     },
   });
 

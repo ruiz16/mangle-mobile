@@ -10,9 +10,11 @@ interface ErrorModalProps {
   title: string;
   message: string;
   onClose: () => void;
+  /** Botón de acción opcional (ej. deep-link de depósito MiniPay). */
+  action?: { label: string; href: string };
 }
 
-export default function ErrorModal({ title, message, onClose }: ErrorModalProps) {
+export default function ErrorModal({ title, message, onClose, action }: ErrorModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-5 bg-black/60">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl">
@@ -30,10 +32,23 @@ export default function ErrorModal({ title, message, onClose }: ErrorModalProps)
           </div>
         </div>
 
-        <div className="px-6 pb-6">
+        <div className="px-6 pb-6 space-y-2.5">
+          {action && (
+            <a
+              href={action.href}
+              onClick={onClose}
+              className="block w-full py-3.5 bg-primary active:scale-[0.98] text-white font-extrabold text-sm rounded-2xl shadow-md transition-all text-center"
+            >
+              {action.label}
+            </a>
+          )}
           <button
             onClick={onClose}
-            className="w-full py-3.5 bg-red-500 hover:bg-red-600 active:scale-[0.98] text-white font-extrabold text-sm rounded-2xl shadow-md transition-all"
+            className={`w-full py-3.5 active:scale-[0.98] font-extrabold text-sm rounded-2xl transition-all ${
+              action
+                ? 'bg-slate-100 text-slate-600'
+                : 'bg-red-500 hover:bg-red-600 text-white shadow-md'
+            }`}
           >
             Entendido
           </button>

@@ -159,8 +159,6 @@ export default function Request() {
       .catch(() => setReferadoras([]));
   }, [state.authToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const moneda = credito?.moneda ?? 'COPm';
-
   useEffect(() => {
     if (!eduLoading && eduProgress < 100) {
       showToast('Educación Incompleta', 'Completa el módulo educativo primero.');
@@ -197,7 +195,7 @@ export default function Request() {
   return (
     <div className="flex-1 flex flex-col justify-between p-5">
       <div className="space-y-4">
-        <PageHeader title="Solicitar tu Crédito" subtitle="Solicita tu crédito y recibe tu COPm en tu wallet." />
+        <PageHeader title="Solicitar tu Crédito" subtitle="Solicita tu crédito y recibe tu dinero." />
 
         {miAlerta.alerta && (
           <div className="bg-danger-50 border border-danger-200 rounded-2xl p-4 flex gap-3 items-start">
@@ -242,7 +240,7 @@ export default function Request() {
               <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
                 <p className="text-[9px] text-slate-400 uppercase tracking-wide">Monto solicitado</p>
                 <p className="text-base font-black text-slate-800 mt-1">{formatCOP(Number(credito?.monto ?? 0))}</p>
-                <p className="text-[9px] text-slate-400 mt-0.5">{moneda}</p>
+                <p className="text-[9px] text-slate-400 mt-0.5">pesos</p>
               </div>
               <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
                 <p className="text-[9px] text-slate-400 uppercase tracking-wide">Plazo</p>
@@ -270,7 +268,7 @@ export default function Request() {
               <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
                 <p className="text-[9px] text-slate-400 uppercase tracking-wide">Monto</p>
                 <p className="text-base font-black text-slate-800 mt-1">{formatCOP(Number(credito?.monto ?? 0))}</p>
-                <p className="text-[9px] text-slate-400 mt-0.5">{moneda}</p>
+                <p className="text-[9px] text-slate-400 mt-0.5">pesos</p>
               </div>
               <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
                 <p className="text-[9px] text-slate-400 uppercase tracking-wide">Pagadas</p>

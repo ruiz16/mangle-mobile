@@ -17,6 +17,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { createWalletClient, createPublicClient, custom, formatUnits, parseUnits, encodeFunctionData } from 'viem';
 import { getActiveChain, getActiveTransport, resolveContractAddresses } from '../lib/network';
+import { buildSwapForCopm, usdmNeededForCopm } from '../lib/mento';
 import type { Address } from 'viem';
 
 // Minimal ERC-20 ABI for balanceOf + transfer + approve
@@ -105,6 +106,11 @@ export interface UseMiniPayReturn {
   connect: () => Promise<{ address: Address; copmBalance: bigint }>;
   signMessage: (message: string, signerAddress: Address) => Promise<`0x${string}`>;
   getCopmBalance: (addr: Address) => Promise<bigint>;
+  getUsdmBalance: (addr: Address) => Promise<bigint>;
+  /** Estima el USDm (wei) necesario para obtener `copmOut` COPm. Lanza si no hay cotización. */
+  estimateUsdmForCopm: (copmOut: bigint) => Promise<bigint>;
+  /** Convierte USDm -> COPm para obtener ~`copmOut`. Manda approval+swap por MiniPay. */
+  swapUsdmToCopm: (copmOut: bigint, from: Address) => Promise<void>;
   sendCopm: (to: Address, amountCopm: string, from: Address) => Promise<`0x${string}`>;
   repayCopm: (
     poolAddress: Address,
@@ -168,7 +174,7 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
 
   const getWalletClient = useCallback(() => {
     if (!provider) {
-      throw new Error('No se encontró una wallet. Instalá MetaMask o abrí esta app en MiniPay.');
+      throw new Error('No se encontró una billetera. Abrí esta app en MiniPay.');
     }
     return createWalletClient({
       chain: ACTIVE_CHAIN,
@@ -182,13 +188,13 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
 
     try {
       if (!provider) {
-        throw new Error('No se encontró una wallet. Instalá MetaMask o abrí esta app en MiniPay.');
+        throw new Error('No se encontró una billetera. Abrí esta app en MiniPay.');
       }
 
       const walletClient = getWalletClient();
       const [connectedAddress] = await walletClient.requestAddresses();
       if (!connectedAddress) {
-        throw new Error('No se obtuvo acceso a la wallet. Rechazaste la conexión o la wallet no respondió.');
+        throw new Error('No se obtuvo acceso a la billetera. Rechazaste la conexión o la billetera no respondió.');
       }
 
       try {
@@ -230,7 +236,7 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
 
   const signMessage = useCallback(async (message: string, signerAddress: Address): Promise<`0x${string}`> => {
     if (!signerAddress) {
-      throw new Error('Primero conectá tu wallet.');
+      throw new Error('Primero conectá tu billetera.');
     }
     const walletClient = getWalletClient();
     const signature = await walletClient.signMessage({
@@ -256,6 +262,58 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
   }, []);
 
   // --------------------------------------------------------------------------
+  // Saldo de USDm (dólares digitales) — fondo desde el que se convierte a COPm.
+  // --------------------------------------------------------------------------
+  const getUsdmBalance = useCallback(async (addr: Address): Promise<bigint> => {
+    const publicClient = createPublicClient({ chain: ACTIVE_CHAIN, transport: getActiveTransport() });
+    const { cusdAddress } = resolveContractAddresses(ACTIVE_CHAIN.id);
+    return publicClient.readContract({
+      address: cusdAddress,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [addr],
+    }) as Promise<bigint>;
+  }, []);
+
+  const estimateUsdmForCopm = useCallback(async (copmOut: bigint): Promise<bigint> => {
+    return usdmNeededForCopm(copmOut);
+  }, []);
+
+  // --------------------------------------------------------------------------
+  // Convierte USDm -> COPm vía Mento (SDK) para obtener ~copmOut. Manda las txs
+  // (approval + swap) por el provider de MiniPay. El gas se paga en USDm para
+  // no requerir COPm/CELO previos. Espera el recibo del swap antes de retornar.
+  // --------------------------------------------------------------------------
+  const swapUsdmToCopm = useCallback(async (copmOut: bigint, from: Address): Promise<void> => {
+    if (!provider) throw new Error('No se encontró una billetera.');
+
+    const { approval, swap } = await buildSwapForCopm(copmOut, from);
+
+    const { cusdAddress } = resolveContractAddresses(ACTIVE_CHAIN.id);
+    const feeField = { feeCurrency: cusdAddress }; // gas en USDm
+    const publicClient = createPublicClient({ chain: ACTIVE_CHAIN, transport: getActiveTransport() });
+
+    const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
+    const currentFrom = (accounts[0] ?? from) as Address;
+
+    if (approval) {
+      const approveHash = await provider.request({
+        method: 'eth_sendTransaction',
+        params: [{ from: currentFrom, to: approval.to, data: approval.data, ...feeField }],
+      }) as `0x${string}`;
+      const r = await publicClient.waitForTransactionReceipt({ hash: approveHash, timeout: 60_000 });
+      if (r.status !== 'success') throw new Error('No pudimos preparar tu pago. Intentá de nuevo.');
+    }
+
+    const swapHash = await provider.request({
+      method: 'eth_sendTransaction',
+      params: [{ from: currentFrom, to: swap.to, data: swap.data, ...feeField }],
+    }) as `0x${string}`;
+    const rec = await publicClient.waitForTransactionReceipt({ hash: swapHash, timeout: 90_000 });
+    if (rec.status !== 'success') throw new Error('No pudimos preparar tu pago. Intentá de nuevo.');
+  }, [provider]);
+
+  // --------------------------------------------------------------------------
   // Send COPm via ERC-20 transfer
   // feeCurrency = copmAddress → gas pagado en COPm, sin CELO nativo
   // --------------------------------------------------------------------------
@@ -265,7 +323,7 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
     from: Address,
   ): Promise<`0x${string}`> => {
     if (!provider) {
-      throw new Error('No se encontró una wallet.');
+      throw new Error('No se encontró una billetera.');
     }
 
     const switchClient = createWalletClient({ chain: ACTIVE_CHAIN, transport: custom(provider) });
@@ -311,7 +369,7 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
     amountCopm: string,
     from: Address,
   ): Promise<`0x${string}`> => {
-    if (!provider) throw new Error('No se encontró una wallet.');
+    if (!provider) throw new Error('No se encontró una billetera.');
 
     const switchClient = createWalletClient({ chain: ACTIVE_CHAIN, transport: custom(provider) });
     try {
@@ -355,7 +413,7 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
 
       const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveTx, timeout: 60_000 });
       if (approveReceipt.status !== 'success') {
-        throw new Error('La aprobación de COPm falló. Reintenta el pago.');
+        throw new Error('No pudimos procesar tu pago. Intentá de nuevo.');
       }
 
       // Esperar que el allowance se refleje on-chain
@@ -399,6 +457,9 @@ export function useMiniPay(options?: { onDisconnect?: () => void }): UseMiniPayR
     connect,
     signMessage,
     getCopmBalance,
+    getUsdmBalance,
+    estimateUsdmForCopm,
+    swapUsdmToCopm,
     sendCopm,
     repayCopm,
   };

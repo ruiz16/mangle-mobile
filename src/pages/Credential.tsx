@@ -39,7 +39,7 @@ export default function Credential() {
         style={{ background: 'radial-gradient(ellipse 70% 45% at 50% 52%, rgba(176,91,53,0.15) 0%, transparent 70%)' }}
       />
 
-      <PageHeader title="Tu Reputación Off-Chain" subtitle="Credencial Digital" />
+      <PageHeader title="Tu Reputación" subtitle="Credencial Digital" />
 
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-10 space-y-3">
@@ -126,7 +126,7 @@ export default function Credential() {
                 <p className="text-[11px] font-bold">{fullName || '—'}</p>
               </div>
               <div className="text-right">
-                <p className="text-[7px] text-orange-200/50 uppercase tracking-wider">Wallet</p>
+                <p className="text-[7px] text-orange-200/50 uppercase tracking-wider">Cuenta</p>
                 <p className="text-[9px] font-mono text-orange-100/80">{truncatedAddress}</p>
               </div>
             </div>
@@ -158,16 +158,16 @@ export default function Credential() {
             <i className="fa-solid fa-wallet text-primary text-sm" />
           </div>
           <div className="flex flex-col items-start">
-            <span className="text-xs font-bold text-ink">Tu Wallet</span>
-            <span className="text-[10px] text-slate-400">Ver tu saldo COPm</span>
+            <span className="text-xs font-bold text-ink">Tu billetera</span>
+            <span className="text-[10px] text-slate-400">Ver tu saldo</span>
           </div>
         </div>
         <i className="fa-solid fa-chevron-right text-slate-300 text-xs" />
       </button>
 
       <p className="text-[10px] text-slate-600 text-center px-6 leading-relaxed">
-        Este score vive de forma auditable, en todas las transacciones de tu wallet MiniPay. 
-        Nos sirve para validar tu compromiso y la confianza para la fase 2.
+        Este score refleja tu historial de pagos y compromisos en MANGLE.
+        Nos sirve para validar tu confianza para la fase 2.
       </p>
         </>
       )}

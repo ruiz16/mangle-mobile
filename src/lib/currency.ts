@@ -24,9 +24,9 @@ export function formatCOP(value: number): string {
 
 /**
  * Format a COPm amount string (from API) for display.
- * Example: formatCopm("1000000") → "$1.000.000 COPm"
+ * Example: formatCopm("1000000") → "$1.000.000,00"
  */
 export function formatCopm(value: string | number): string {
   const num = typeof value === 'string' ? parseFloat(value) : value;
-  return '$' + num.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' COPm';
+  return '$' + num.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }

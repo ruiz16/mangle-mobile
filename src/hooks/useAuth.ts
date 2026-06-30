@@ -103,7 +103,7 @@ export function useAuth() {
         typeof window !== 'undefined' ? (window as unknown as { ethereum?: any }).ethereum : null;
 
       if (!provider) {
-        throw new Error('No se encontró una wallet. Abrí esta app en MiniPay.');
+        throw new Error('No se encontró una billetera. Abrí esta app en MiniPay.');
       }
 
       // ✅ leer isMiniPay directo del provider (evita race condition del primer render)
@@ -117,11 +117,11 @@ export function useAuth() {
         } else {
           const walletClient = createWalletClient({ transport: custom(provider) });
           const requested: string[] = await walletClient.requestAddresses();
-          if (!requested.length) throw new Error('No se obtuvo acceso a la wallet.');
+          if (!requested.length) throw new Error('No se obtuvo acceso a la billetera.');
           address = requested[0]!;
         }
       } catch (walletErr: any) {
-        throw new Error(walletErr?.message || 'No se pudo conectar la wallet.');
+        throw new Error(walletErr?.message || 'No se pudo conectar la billetera.');
       }
 
       connectWallet(address);

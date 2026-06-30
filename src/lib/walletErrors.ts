@@ -54,12 +54,12 @@ export function friendlyWalletError(err: any): string {
     text.includes('transfer amount exceeds') ||
     text.includes('insufficient balance')
   ) {
-    return 'No tenés suficiente COPm para pagar esta cuota (incluye una pequeña comisión de red en COPm). Recargá COPm e intentá de nuevo.';
+    return 'No tenés suficiente saldo para pagar esta cuota (incluye una pequeña comisión de red). Recargá e intentá de nuevo.';
   }
 
   // 4. Fee currency no válido (típico en testnet con un token que no es fee currency)
   if (text.includes('fee currency') || text.includes('feecurrency') || text.includes('not whitelisted')) {
-    return 'Esta red no permite pagar el gas con COPm. Probá desde MiniPay en mainnet, o usá una wallet con CELO para el gas.';
+    return 'No pudimos cobrar la comisión de red. Probá de nuevo desde MiniPay.';
   }
 
   // 5. Conexión / RPC / timeout
@@ -69,7 +69,7 @@ export function friendlyWalletError(err: any): string {
 
   // 6. Reverted genérico
   if (text.includes('revert')) {
-    return 'La transacción fue rechazada por la blockchain. Revisá tu saldo e intentá de nuevo.';
+    return 'Tu pago fue rechazado. Intentá de nuevo.';
   }
 
   // 7. Fallback: usar shortMessage SOLO si es corto y legible; si no, genérico.
