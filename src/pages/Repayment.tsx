@@ -10,9 +10,9 @@ import { useAppState } from '../context/AppState';
 import { useMiniPay } from '../hooks/useMiniPay';
 import PageHeader from '../components/PageHeader';
 import { showToast } from '../components/Toast';
-import { getActiveChain, getActiveTransport } from '../lib/network';
+import { getActiveChain, getActiveTransport, ACTIVE_NETWORK } from '../lib/network';
 import { apiPost, ApiRequestError } from '../lib/api';
-import { formatCopm, formatCopmBalance } from '../lib/currency';
+import { formatCopm } from '../lib/currency';
 import { friendlyWalletError } from '../lib/walletErrors';
 import Lottie from 'lottie-react';
 import walletAnimation from '../assets/lottie/16a8e6c0-117a-11ee-a9de-ab7b4c8f4c79.json';
@@ -193,14 +193,45 @@ export default function Repayment() {
           const balance = await wallet.getCopmBalance(state.walletAddress as Address);
           const needed = parseUnits(cuota.monto_cuota, 18);
           if (balance < needed) {
-            showErrorModal(
-              'Saldo insuficiente',
-              `Tu saldo es ${formatCopmBalance(balance)} y la cuota es ${formatCopm(cuota.monto_cuota)}. Recargá e intentá de nuevo.`,
-            );
-            setPayingCuotaId(null);
-            return;
+            // En testnet el COPm es un Mock sin pool en Mento (no hay swap posible):
+            // el tester fondea el mock directo. Conservamos el aviso clásico.
+            if (ACTIVE_NETWORK !== 'mainnet') {
+              showErrorModal(
+                'Saldo insuficiente',
+                `Necesitás ${formatCopm(cuota.monto_cuota)} para pagar esta cuota. Recargá tu saldo e intentá de nuevo.`,
+              );
+              setPayingCuotaId(null);
+              return;
+            }
+            // Falta saldo en pesos: lo cubrimos convirtiendo desde el saldo en
+            // dólares digitales (USDm) del usuario. Si tampoco alcanza, a recargar.
+            const shortfall = needed - balance;
+            let usdmNeeded: bigint;
+            try {
+              usdmNeeded = await wallet.estimateUsdmForCopm(shortfall);
+            } catch {
+              showErrorModal('No disponible', 'No pudimos preparar tu pago en este momento. Intentá de nuevo en unos minutos.');
+              setPayingCuotaId(null);
+              return;
+            }
+            const usdmBalance = await wallet.getUsdmBalance(state.walletAddress as Address);
+            if (usdmBalance < usdmNeeded) {
+              showErrorModal(
+                'Saldo insuficiente',
+                `Necesitás ${formatCopm(cuota.monto_cuota)} para pagar esta cuota. Recargá tu saldo desde MiniPay e intentá de nuevo.`,
+              );
+              setPayingCuotaId(null);
+              return;
+            }
+            showToast('Preparando', 'Preparando tu pago…', 'info');
+            await wallet.swapUsdmToCopm(shortfall, state.walletAddress as Address);
           }
-        } catch { /* si el chequeo falla, seguimos: el flujo normal mostrará el error */ }
+        } catch (balErr) {
+          // Si la conversión falla, NO seguimos al cobro (evita una tx fallida fea).
+          showErrorModal('Error en el pago', friendlyWalletError(balErr));
+          setPayingCuotaId(null);
+          return;
+        }
         showToast('Enviando', 'Confirmá tu pago en tu billetera.', 'info');
         if (cuota.credito_repayment_mode === 'pool') {
           const creditId = keccak256(stringToHex(cuota.credito_id));
