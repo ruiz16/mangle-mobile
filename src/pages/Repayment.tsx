@@ -191,7 +191,8 @@ export default function Repayment() {
         // le alcanza. Solo si no hay un pago pendiente que estemos reanudando.
         try {
           const balance = await wallet.getCopmBalance(state.walletAddress as Address);
-          const needed = parseUnits(cuota.monto_cuota, 18);
+          const needed = parseUnits(String(cuota.monto_cuota), 18);
+
           if (balance < needed) {
             // En testnet el COPm es un Mock sin pool en Mento (no hay swap posible):
             // el tester fondea el mock directo. Conservamos el aviso clásico.
@@ -218,7 +219,11 @@ export default function Repayment() {
             if (usdmBalance < usdmNeeded) {
               showErrorModal(
                 'Saldo insuficiente',
-                `Necesitás ${formatCopm(cuota.monto_cuota)} para pagar esta cuota. Recargá tu saldo desde MiniPay e intentá de nuevo.`,
+                `Necesitás ${formatCopm(cuota.monto_cuota)} para pagar esta cuota. Recargá tu saldo e intentá de nuevo.`,
+                // Dentro de MiniPay, ofrecé el depósito nativo (deep-link oficial).
+                wallet.isMiniPay
+                  ? { label: 'Recargar saldo', href: 'https://link.minipay.xyz/add_cash?tokens=USDm,USDC,USDT' }
+                  : undefined,
               );
               setPayingCuotaId(null);
               return;
@@ -227,6 +232,8 @@ export default function Repayment() {
             await wallet.swapUsdmToCopm(shortfall, state.walletAddress as Address);
           }
         } catch (balErr) {
+          console.log(balErr);
+          
           // Si la conversión falla, NO seguimos al cobro (evita una tx fallida fea).
           showErrorModal('Error en el pago', friendlyWalletError(balErr));
           setPayingCuotaId(null);

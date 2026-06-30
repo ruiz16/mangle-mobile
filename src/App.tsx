@@ -103,6 +103,7 @@ function GlobalOverlays() {
     <ErrorModal
       title={state.errorModal.title}
       message={state.errorModal.message}
+      action={state.errorModal.action}
       onClose={clearErrorModal}
     />
   );

@@ -153,8 +153,8 @@ export interface AppState {
   authToken: string | null;
   refreshToken: string | null;
 
-  // Blocking error modal
-  errorModal: { title: string; message: string } | null;
+  // Blocking error modal (action opcional: botón secundario, ej. deep-link de depósito)
+  errorModal: { title: string; message: string; action?: { label: string; href: string } } | null;
 }
 
 // =============================================================================

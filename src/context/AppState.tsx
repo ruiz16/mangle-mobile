@@ -74,7 +74,7 @@ interface AppStateContextValue {
   clearAuth: () => void;
   registerUser: () => void;
   resetState: () => void;
-  showErrorModal: (title: string, message: string) => void;
+  showErrorModal: (title: string, message: string, action?: { label: string; href: string }) => void;
   clearErrorModal: () => void;
 }
 
@@ -141,8 +141,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setState(createDefaultState());
   }, []);
 
-  const showErrorModal = useCallback((title: string, message: string) => {
-    setState((prev) => ({ ...prev, errorModal: { title, message } }));
+  const showErrorModal = useCallback((title: string, message: string, action?: { label: string; href: string }) => {
+    setState((prev) => ({ ...prev, errorModal: { title, message, action } }));
   }, []);
 
   const clearErrorModal = useCallback(() => {
