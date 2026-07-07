@@ -7,3 +7,4 @@ dist
 .env.development.local
 .env.test.local
 .env.production.local
+.env.local.bak-2026-07-01T03-42-33-913Z
