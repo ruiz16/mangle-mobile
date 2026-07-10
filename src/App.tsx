@@ -154,7 +154,7 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
       <WagmiProvider config={wagmiConfig}>
       <RainbowKitProvider modalSize="compact">
-      <div className="h-full flex flex-col bg-ink-950">
+      <div className="h-dvh flex flex-col bg-ink-950">
         <BackendGuard>
           <Toast />
           <GlobalOverlays />
