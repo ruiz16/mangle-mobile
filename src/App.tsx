@@ -21,6 +21,7 @@ import Credential from './pages/Credential';
 import Wallet from './pages/Wallet';
 import Gacc from './pages/Gacc';
 import Dev from './pages/Dev';
+import PruebaWallet from './pages/PruebaWallet';
 import type { NavTab } from './types';
 
 // =============================================================================
@@ -150,6 +151,12 @@ export default function App() {
             <Route path="/dev">
               <MobileShell showNav={false}>
                 <Dev />
+              </MobileShell>
+            </Route>
+
+            <Route path="/prueba-wallet">
+              <MobileShell showNav={false}>
+                <PruebaWallet />
               </MobileShell>
             </Route>
 
