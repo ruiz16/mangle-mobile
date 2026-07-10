@@ -1,5 +1,10 @@
 import { Route, Switch, useLocation } from 'wouter';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { WagmiProvider } from 'wagmi';
+import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
+import '@rainbow-me/rainbowkit/styles.css';
+import { wagmiConfig } from './lib/wagmi';
+import { useMiniPayAutoConnect } from './lib/minipay';
 import { queryClient } from './queries/client';
 import { useEduProgreso } from './queries/educacion';
 import { useMiAlerta } from './queries/gacc';
@@ -137,14 +142,23 @@ function DisconnectGuard() {
   return null;
 }
 
+// MiniPayBridge — auto-connecta injected dentro de MiniPay (debe vivir en Wagmi).
+function MiniPayBridge() {
+  useMiniPayAutoConnect();
+  return null;
+}
+
 export default function App() {
   return (
     <AppStateProvider>
       <QueryClientProvider client={queryClient}>
+      <WagmiProvider config={wagmiConfig}>
+      <RainbowKitProvider modalSize="compact">
       <div className="h-full flex flex-col bg-ink-950">
         <BackendGuard>
           <Toast />
           <GlobalOverlays />
+          <MiniPayBridge />
           <DisconnectGuard />
           <Switch>
             
@@ -217,6 +231,8 @@ export default function App() {
           </Switch>
         </BackendGuard>
       </div>
+      </RainbowKitProvider>
+      </WagmiProvider>
       </QueryClientProvider>
     </AppStateProvider>
   );

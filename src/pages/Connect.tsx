@@ -14,7 +14,7 @@ import connectAnimation from '../assets/lottie/16a8e6c0-117a-11ee-a9de-ab7b4c8f4
 const STEP_LABELS: Record<AuthStep, string> = {
   idle: 'Preparando, un momento.',
   checking_session: 'Verificando sesión anterior',
-  connecting_wallet: 'Conectando con MiniPay',
+  connecting_wallet: 'Conectando tu billetera',
   fetching_nonce: 'Preparando autenticación',
   signing: 'Firmá el mensaje en tu billetera',
   exchanging: 'Autenticando con el servidor',
@@ -29,16 +29,14 @@ export default function Connect() {
     step,
     error: authError,
     isAuthenticated,
-    isAuthLoading,
     retry,
     connect,
     connectorType,
-    env,
+    isMiniPay,
     needsManualConnect,
   } = useAuth();
 
   const [, navigate] = useLocation();
-  const isMiniPay = connectorType === 'MiniPay';
 
   useEffect(() => {
     if (!isAuthenticated || !state.authToken) return;
@@ -74,35 +72,6 @@ export default function Connect() {
     );
   }
 
-  if (env === 'none' && !isAuthLoading) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-surface-light to-surface p-6">
-        <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl shadow-ink/5 p-8 space-y-6">
-          <LottieDisplay size={160} />
-          <div className="text-center space-y-2">
-            <h1 className="text-xl font-bold text-ink">Billetera no detectada</h1>
-            <p className="text-sm text-slate-500 leading-relaxed">
-              Para usar MANGLE necesitás una billetera como{' '}
-              <strong className="text-primary">MetaMask</strong> (escritorio) o{' '}
-              <strong className="text-primary">MiniPay</strong> (celular).
-            </p>
-          </div>
-          <div className="space-y-3">
-            <a href="https://metamask.io/download/" target="_blank" rel="noopener noreferrer"
-              className="flex items-center justify-center gap-3 w-full py-3.5 bg-ink hover:bg-primary text-white font-bold text-sm rounded-2xl shadow-md shadow-ink/10 transition-all active:scale-[0.98]">
-              <i className="fa-brands fa-chrome text-base" /> Descargar MetaMask
-            </a>
-            <a href="https://www.opera.com/minipay" target="_blank" rel="noopener noreferrer"
-              className="flex items-center justify-center gap-3 w-full py-3.5 border-2 border-primary text-primary font-bold text-sm rounded-2xl hover:bg-surface transition-all active:scale-[0.98]">
-              <i className="fa-solid fa-mobile-screen text-base" /> Descargar MiniPay
-            </a>
-          </div>
-          <button onClick={() => navigate('/')} className="w-full py-2 text-slate-400 hover:text-ink text-xs font-semibold transition-colors">Volver</button>
-        </div>
-      </div>
-    );
-  }
-
   if (step === 'error' || (step === 'connecting_wallet' && authError)) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-surface-light to-surface p-6">
@@ -121,8 +90,8 @@ export default function Connect() {
     );
   }
 
-  // Afuera de MiniPay con wallet presente: la conexión requiere un gesto del
-  // usuario (click). MiniPay no llega acá porque conecta implícitamente.
+  // Fuera de MiniPay y sin conexión: botón que abre el modal de RainbowKit.
+  // Dentro de MiniPay no aparece (conexión implícita, auto-connect).
   if (needsManualConnect) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-surface-light to-surface p-6">
@@ -131,8 +100,7 @@ export default function Connect() {
           <div className="text-center space-y-2">
             <h1 className="text-xl font-bold text-ink">Conectá tu billetera</h1>
             <p className="text-sm text-slate-500 leading-relaxed">
-              Autorizá la conexión con <strong className="text-primary">{connectorType}</strong> para
-              entrar a MANGLE.
+              Elegí tu billetera para entrar a MANGLE.
             </p>
           </div>
           <button
