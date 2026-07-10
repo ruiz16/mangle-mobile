@@ -11,6 +11,7 @@ import { createConfig, http } from 'wagmi';
 import { celo, celoSepolia } from 'viem/chains';
 import { connectorsForWallets } from '@rainbow-me/rainbowkit';
 import {
+  injectedWallet,
   binanceWallet,
   trustWallet,
   valoraWallet,
@@ -24,7 +25,9 @@ const connectors = connectorsForWallets(
   [
     {
       groupName: 'Billeteras',
-      wallets: [binanceWallet, trustWallet, valoraWallet, walletConnectWallet],
+      // injectedWallet: solo aparece si hay extensión inyectada (desktop) →
+      // conecta MetaMask/Rabby/etc directo; en mobile Safari queda oculto.
+      wallets: [injectedWallet, binanceWallet, trustWallet, valoraWallet, walletConnectWallet],
     },
   ],
   { appName: 'MANGLE', projectId: WC_PROJECT_ID },
