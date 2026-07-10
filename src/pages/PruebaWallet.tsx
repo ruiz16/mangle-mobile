@@ -12,16 +12,38 @@
 
 import '@rainbow-me/rainbowkit/styles.css';
 import { useState } from 'react';
-import { WagmiProvider, useAccount, useSignMessage } from 'wagmi';
-import { getDefaultConfig, RainbowKitProvider, ConnectButton } from '@rainbow-me/rainbowkit';
+import { WagmiProvider, createConfig, http, useAccount, useSignMessage } from 'wagmi';
+import { connectorsForWallets, RainbowKitProvider, ConnectButton } from '@rainbow-me/rainbowkit';
+import {
+  metaMaskWallet,
+  valoraWallet,
+  rabbyWallet,
+  binanceWallet,
+  walletConnectWallet,
+} from '@rainbow-me/rainbowkit/wallets';
 import { celo, celoSepolia } from 'viem/chains';
 
 const WC_PROJECT_ID = (import.meta.env?.VITE_WC_PROJECT_ID as string | undefined)?.trim() || '';
 
-const config = getDefaultConfig({
-  appName: 'MANGLE — prueba',
-  projectId: WC_PROJECT_ID,
+// Lista CURADA: solo las wallets más conocidas + WalletConnect (para cualquier
+// otra). Nada de Coinbase / "Browser Wallet" genéricos.
+const connectors = connectorsForWallets(
+  [
+    {
+      groupName: 'Billeteras',
+      wallets: [metaMaskWallet, valoraWallet, rabbyWallet, binanceWallet, walletConnectWallet],
+    },
+  ],
+  { appName: 'MANGLE — prueba', projectId: WC_PROJECT_ID },
+);
+
+const config = createConfig({
   chains: [celo, celoSepolia],
+  transports: {
+    [celo.id]: http('https://forno.celo.org'),
+    [celoSepolia.id]: http('https://forno.celo-sepolia.celo-testnet.org'),
+  },
+  connectors,
   ssr: false,
 });
 
