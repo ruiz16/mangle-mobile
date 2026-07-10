@@ -15,10 +15,9 @@ import { useState } from 'react';
 import { WagmiProvider, createConfig, http, useAccount, useSignMessage } from 'wagmi';
 import { connectorsForWallets, RainbowKitProvider, ConnectButton } from '@rainbow-me/rainbowkit';
 import {
-  metaMaskWallet,
   valoraWallet,
-  rabbyWallet,
   binanceWallet,
+  metaMaskWallet,
   walletConnectWallet,
 } from '@rainbow-me/rainbowkit/wallets';
 import { celo, celoSepolia } from 'viem/chains';
@@ -31,7 +30,7 @@ const connectors = connectorsForWallets(
   [
     {
       groupName: 'Billeteras',
-      wallets: [metaMaskWallet, valoraWallet, rabbyWallet, binanceWallet, walletConnectWallet],
+      wallets: [valoraWallet, binanceWallet, metaMaskWallet, walletConnectWallet],
     },
   ],
   { appName: 'MANGLE — prueba', projectId: WC_PROJECT_ID },
