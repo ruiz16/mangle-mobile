@@ -14,12 +14,7 @@ import '@rainbow-me/rainbowkit/styles.css';
 import { useState } from 'react';
 import { WagmiProvider, createConfig, http, useAccount, useSignMessage } from 'wagmi';
 import { connectorsForWallets, RainbowKitProvider, ConnectButton } from '@rainbow-me/rainbowkit';
-import {
-  valoraWallet,
-  binanceWallet,
-  metaMaskWallet,
-  walletConnectWallet,
-} from '@rainbow-me/rainbowkit/wallets';
+import { valoraWallet, binanceWallet, walletConnectWallet } from '@rainbow-me/rainbowkit/wallets';
 import { celo, celoSepolia } from 'viem/chains';
 
 const WC_PROJECT_ID = (import.meta.env?.VITE_WC_PROJECT_ID as string | undefined)?.trim() || '';
@@ -30,7 +25,7 @@ const connectors = connectorsForWallets(
   [
     {
       groupName: 'Billeteras',
-      wallets: [valoraWallet, binanceWallet, metaMaskWallet, walletConnectWallet],
+      wallets: [valoraWallet, binanceWallet, walletConnectWallet],
     },
   ],
   { appName: 'MANGLE — prueba', projectId: WC_PROJECT_ID },
