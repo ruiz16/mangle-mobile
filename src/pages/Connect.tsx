@@ -29,8 +29,12 @@ export default function Connect() {
     step,
     error: authError,
     isAuthenticated,
+    isAuthLoading,
     retry,
+    connect,
     connectorType,
+    env,
+    needsManualConnect,
   } = useAuth();
 
   const [, navigate] = useLocation();
@@ -70,7 +74,7 @@ export default function Connect() {
     );
   }
 
-  if (step === 'connecting_wallet' && authError?.includes('No se encontró una billetera')) {
+  if (env === 'none' && !isAuthLoading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-surface-light to-surface p-6">
         <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl shadow-ink/5 p-8 space-y-6">
@@ -112,6 +116,37 @@ export default function Connect() {
             <i className="fa-solid fa-rotate text-sm" /> Reintentar
           </button>
           <CancelButton />
+        </div>
+      </div>
+    );
+  }
+
+  // Afuera de MiniPay con wallet presente: la conexión requiere un gesto del
+  // usuario (click). MiniPay no llega acá porque conecta implícitamente.
+  if (needsManualConnect) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-surface-light to-surface p-6">
+        <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl shadow-ink/5 p-8 space-y-6">
+          <LottieDisplay size={160} />
+          <div className="text-center space-y-2">
+            <h1 className="text-xl font-bold text-ink">Conectá tu billetera</h1>
+            <p className="text-sm text-slate-500 leading-relaxed">
+              Autorizá la conexión con <strong className="text-primary">{connectorType}</strong> para
+              entrar a MANGLE.
+            </p>
+          </div>
+          <button
+            onClick={connect}
+            className="flex items-center justify-center gap-2 w-full py-3.5 bg-ink hover:bg-primary text-white font-bold text-sm rounded-2xl shadow-md shadow-ink/10 transition-all active:scale-[0.98]"
+          >
+            <i className="fa-solid fa-wallet text-sm" /> Conectar billetera
+          </button>
+          <button
+            onClick={() => navigate('/')}
+            className="w-full py-2 text-slate-400 hover:text-ink text-xs font-semibold transition-colors"
+          >
+            Volver
+          </button>
         </div>
       </div>
     );

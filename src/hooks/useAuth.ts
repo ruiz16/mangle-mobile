@@ -11,13 +11,23 @@ import { getActiveChain } from '../lib/network';
 import { apiGet, apiPost, ApiRequestError } from '../lib/api';
 import type { AuthStep } from '../types';
 
-// ⚠️ TEMPORAL — desactiva SIWE (firma personal_sign) también para wallets tipo
-//    MetaMask, usando el login por address (/api/auth/minipay). Sirve para
-//    probar el flujo sin firmar mientras se ajusta MiniPay.
-//    👉 Volvé a `false` para reactivar SIWE.
-//    NOTA: con esto, cualquier wallet autentica solo con su address, sin prueba
-//    de posesión de la clave. NO dejarlo activo en producción.
-const SIWE_DISABLED = true;
+// SIWE activo. MiniPay conecta implícitamente y autentica por address
+// (/api/auth/minipay), pero las wallets externas tipo MetaMask FIRMAN el mensaje
+// SIWE (/api/auth/siwe) como prueba de posesión de la clave privada. Backend:
+// src/app/api/auth/siwe/route.ts (verificación EIP-4361 completa).
+//    👉 Poner en `true` SOLO para pruebas rápidas sin firma. NUNCA en producción.
+const SIWE_DISABLED = false;
+
+/**
+ * Entorno de wallet detectado:
+ * - 'detecting': todavía esperando a que se inyecte window.ethereum (MiniPay lo
+ *   hace con un pequeño delay tras el load).
+ * - 'minipay': corriendo DENTRO de MiniPay → conexión implícita, sin botón.
+ * - 'injected': hay una wallet EIP-1193 (MetaMask u otra) pero NO es MiniPay →
+ *   la conexión requiere un gesto del usuario (click). Se muestra botón.
+ * - 'none': navegador sin ninguna wallet → pantalla "instalá una wallet".
+ */
+export type WalletEnv = 'detecting' | 'minipay' | 'injected' | 'none';
 
 export function useAuth() {
   const {
@@ -36,6 +46,52 @@ export function useAuth() {
   const [error, setError] = useState<string | null>(null);
 
   const guard = useRef({ attempted: false, lastAddress: null as string | null, isRunning: false });
+
+  // ── Detección de entorno de wallet ──────────────────────────────────────
+  // MiniPay inyecta window.ethereum DESPUÉS del primer render, así que hacemos
+  // un poll corto antes de concluir 'none'. `preAuthorized` = la wallet ya
+  // autorizó una cuenta (eth_accounts no vacío) → podemos conectar sin popup.
+  const [env, setEnv] = useState<WalletEnv>('detecting');
+  const [preAuthorized, setPreAuthorized] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let tries = 0;
+
+    const detect = async () => {
+      if (cancelled) return;
+      const eth = typeof window !== 'undefined' ? (window as any).ethereum : undefined;
+
+      if (eth) {
+        if (eth.isMiniPay) {
+          setEnv('minipay');
+          return;
+        }
+        // Wallet inyectada que NO es MiniPay (MetaMask, etc.)
+        try {
+          const accs: string[] = await eth.request({ method: 'eth_accounts' });
+          if (!cancelled) setPreAuthorized(accs.length > 0);
+        } catch {
+          /* la wallet puede rechazar eth_accounts si está bloqueada — ignorar */
+        }
+        if (!cancelled) setEnv('injected');
+        return;
+      }
+
+      // Todavía sin provider: reintentar hasta ~1.5s antes de dar 'none'
+      tries += 1;
+      if (tries >= 10) {
+        setEnv('none');
+        return;
+      }
+      setTimeout(detect, 150);
+    };
+
+    detect();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const isAuthenticated = step === 'authenticated';
   const isAuthLoading =
@@ -60,7 +116,7 @@ export function useAuth() {
     }
   }, [walletAddress, step, clearAuth]);
 
-  const runAuthFlow = useCallback(async () => {
+  const runAuthFlow = useCallback(async (userInitiated = false) => {
     if (guard.current.isRunning) return;
     guard.current.attempted = true;
     guard.current.isRunning = true;
@@ -115,6 +171,16 @@ export function useAuth() {
         if (accounts.length > 0) {
           address = accounts[0]!;
         } else {
+          // Sin cuenta autorizada → requestAddresses ABRE el popup de la wallet.
+          // Afuera de MiniPay eso exige un gesto del usuario: si el flujo se
+          // disparó solo (no userInitiated), volvemos a idle y mostramos el
+          // botón "Conectar billetera" en vez de intentar un popup que la
+          // wallet bloquearía por falta de gesto.
+          if (!currentIsMiniPay && !userInitiated) {
+            guard.current.attempted = false;
+            setStep('idle');
+            return;
+          }
           const walletClient = createWalletClient({ transport: custom(provider) });
           const requested: string[] = await walletClient.requestAddresses();
           if (!requested.length) throw new Error('No se obtuvo acceso a la billetera.');
@@ -206,9 +272,22 @@ export function useAuth() {
     if (step === 'authenticated') return;
     if (isAuthLoading) return;
 
-    // Esperar a que MiniPay inyecte window.ethereum
-    const providerReady = typeof window !== 'undefined' && !!(window as any).ethereum;
-    if (!providerReady) return;
+    // Esperar a que termine la detección del entorno de wallet
+    if (env === 'detecting') return;
+
+    const hasSession = !!state.authToken;
+
+    // Sin wallet y sin sesión previa → no hay nada que auto-ejecutar.
+    // La UI muestra la pantalla "instalá una wallet".
+    if (env === 'none' && !hasSession) return;
+
+    // Solo auto-conectar sin gesto cuando es seguro:
+    //  - dentro de MiniPay (conexión implícita), o
+    //  - la wallet ya autorizó una cuenta (no hay popup), o
+    //  - hay una sesión guardada por validar (no toca la wallet).
+    // Afuera de MiniPay sin cuenta autorizada → esperamos el click del botón.
+    const canAuto = env === 'minipay' || preAuthorized || hasSession;
+    if (!canAuto) return;
 
     if (guard.current.attempted) {
       const currentAddr = state.walletAddress || walletAddress;
@@ -218,7 +297,7 @@ export function useAuth() {
     }
 
     runAuthFlow();
-  }, [step, state.walletAddress, walletAddress, runAuthFlow, isAuthLoading]);
+  }, [env, preAuthorized, step, state.walletAddress, walletAddress, runAuthFlow, isAuthLoading, state.authToken]);
 
   const retry = useCallback(() => {
     guard.current.attempted = false;
@@ -227,8 +306,22 @@ export function useAuth() {
     setError(null);
   }, []);
 
+  // Disparo manual por gesto del usuario (botón "Conectar billetera").
+  // userInitiated=true → SÍ puede abrir el popup de la wallet.
+  const connect = useCallback(() => {
+    guard.current.attempted = false;
+    guard.current.lastAddress = null;
+    setError(null);
+    runAuthFlow(true);
+  }, [runAuthFlow]);
+
   const isMiniPayNow = typeof window !== 'undefined' && !!(window as any).ethereum?.isMiniPay;
   const connectorType = isMiniPayNow ? 'MiniPay' : isAvailable ? 'MetaMask' : 'No disponible';
+
+  // Afuera de MiniPay, con wallet presente pero sin cuenta autorizada aún:
+  // la UI debe mostrar el botón "Conectar billetera" (no auto-conectamos).
+  const needsManualConnect =
+    env === 'injected' && !preAuthorized && !isAuthLoading && !isAuthenticated;
 
   return {
     step,
@@ -236,7 +329,10 @@ export function useAuth() {
     isAuthenticated,
     isAuthLoading,
     retry,
+    connect,
     connectorType,
+    env,
+    needsManualConnect,
     address: walletAddress || state.walletAddress,
   };
 }
